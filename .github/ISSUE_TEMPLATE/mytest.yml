@@ -61,7 +61,7 @@ body:
       required: false
 
   - type: checkboxes
-    id: reactmig_find_by_testcase
+    id: reactmig_find_by
     attriutes:
       label: テスト項目内・項目外の判断
       description: 摘出不具合の発見場所
@@ -72,7 +72,7 @@ body:
       required: true
 
   - type: input
-    id: reactmig_start_modification_date
+    id: reactmig_start_modifi_date
     attributes:
       label: 開発着手予定日
       description: 開発着手予定日
