@@ -6,8 +6,8 @@ body:
     id: reactmig_functionname
     attributes:
       label: 処理名
-      description: 処理名を記載
-      placeholder:インシデントが発生した処理名
+      description: >
+      処理名を記載
     validations:
       required: true
   - type: input
