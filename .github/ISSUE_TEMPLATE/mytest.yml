@@ -9,6 +9,7 @@ body:
       description: 処理名を記載
     validations:
       required: true
+
   - type: input
     id: reactmig_incident_desc
     attributes:
@@ -16,6 +17,7 @@ body:
       description: 不具合内容を記載
     validations:
       required: true
+  
   - type: textarea
     id: detail
     attributes:
@@ -27,6 +29,7 @@ body:
        - **確認結果**
     validations:
       required: true
+  
   - type: input
     id: reactmig_incident_paturn
     attributes:
@@ -34,6 +37,7 @@ body:
       description: 発生率を記載(y/10)
     validations:
       required: true
+  
   - type: textarea
     id: reactmig_testcase_type
     attributes:
@@ -44,22 +48,19 @@ body:
        テストケース番号：
     validations:
       required: false
-  - type: textarea 
-    id: reactmig_testcase_paturn
+ 
+  - type: dropdown
+    id: reactmig_find_by_testcase
     attributes:
-      label: テストケースの種類
-      description: テストケースの種類と番号を入力してください
-      placeholder: >
-      - type: checkboxes
-    id: method
-    attributes:
-      label: テスト項目内外の判断
+      label: テスト項目内・項目外の判断
       description: 摘出不具合はテストケースからですか？探索型テストですか？
-      options: 
-       - label: テストケースから摘出
-       - label: 探索型テストから摘出
+      options:
+       - テストケースから摘出
+       - 探索型テストから摘出
+      default: 0
     validations:
-      required: false
+      required: true
+
   - type: input
     id: reactmig_start_modification_date
     attributes:
@@ -67,6 +68,7 @@ body:
       description: 開発着手予定日
     validations:
       required: false
+
   - type: input 
     id: reactmig_end_modification_date
     attributes:
@@ -74,6 +76,7 @@ body:
       description: 開発終了予定日
     validations:
       required: false
+
   - type: input 
     id: reactmig_modification_days
     attributes:
@@ -81,6 +84,7 @@ body:
       description: 予定工数
     validations:
       required: false
+
   - type: input 
     id: reactmig_modification_days
     attributes:
@@ -88,6 +92,7 @@ body:
       description: 予定工数
     validations:
       required: false
+
   - type: input 
     id: reactmig_modificator
     attributes:
@@ -95,8 +100,4 @@ body:
       description: 修正担当者名
     validations:
       required: false
-
-       テストケースの種類：検証指図書・ユースケース
-       テストケース番号：
     validations:
-      required: false
