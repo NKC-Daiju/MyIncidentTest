@@ -86,7 +86,7 @@ body:
       required: false
 
   - type: dropdown
-    id; reactming_pullrequest
+    id: reactming_pullrequest
     attributes:
     label: プルリクエスト状態
     description: 状態を選んでください
