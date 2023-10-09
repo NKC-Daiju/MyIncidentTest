@@ -22,7 +22,8 @@ body:
     id: detail
     attributes:
       label: インシデント内容
-      description: |
+      description:インシデント内容を記載してください。
+      value: |
        	- **再現手順**
 	- **期待値**
  	- **確認結果**
