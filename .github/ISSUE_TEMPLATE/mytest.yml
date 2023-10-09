@@ -1,6 +1,6 @@
 name: Incident Report
 description: React移行インシデントレポート
-title: "[React Mig.Incident]: "
+title: "[React移行]: "
 body:
   - type: input
     id: reactmig_functionname
@@ -64,7 +64,6 @@ body:
     id: reactmig_start_modification_date
     attributes:
       label: 開発着手予定日
-      description: 開発着手予定日
     validations:
       required: false
 
