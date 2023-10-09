@@ -63,8 +63,8 @@ body:
   - type: dropdown
     id: method
     attriutes:
-      label: テスト項目内・項目外の判断
-      description: 摘出不具合はテストケースからですか？探索型テストですか？
+      label: テスト項目内外の判断
+      description: 摘出不具合はテストケースまたは探索型テストのどちらか
       options:
        - テストケースから摘出
        - 探索型テストから摘出
