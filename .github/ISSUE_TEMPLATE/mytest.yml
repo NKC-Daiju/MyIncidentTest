@@ -85,18 +85,6 @@ body:
     validations:
       required: false
 
-  - type: dropdown
-    id: reactming_pullrequest
-    attributes:
-      label: プルリクエスト状態
-      description: 状態を選んでください
-      options:  
-       - 未レビュー
-       - レビュー待ち
-       - 差し戻し 
-      valudations:
-      required: false
-
   - type: input 
     id: reactmig_modificator
     attributes:
