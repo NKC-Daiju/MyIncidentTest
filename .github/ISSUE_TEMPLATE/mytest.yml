@@ -104,7 +104,7 @@ body:
     validations:
       required: false
 
-  - type:input 
+  - type: input 
     id: reactmig_modificator
     attributes:
       label: 修正担当者を入力
