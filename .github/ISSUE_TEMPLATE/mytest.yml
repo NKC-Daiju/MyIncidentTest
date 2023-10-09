@@ -56,8 +56,9 @@ body:
       required: false
   - type: checkboxes
     id: method
-    attriutes:
+    attributes:
       label: テスト項目内外の判断
+      description: 摘出不具合はテストケースからですか？探索型テストですか？
       options: 
        - label: テストケースから摘出
        - label: 探索型テストから摘出
