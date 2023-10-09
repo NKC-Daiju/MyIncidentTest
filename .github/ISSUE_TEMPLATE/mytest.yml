@@ -24,11 +24,11 @@ body:
       label: インシデント内容
       description: インシデント内容を記載してください。
       value: |
-       	- **再現手順**
-	- **期待値**
- 	- **確認結果**
+       - **再現手順**
+       - **期待値**
+       - **確認結果**
     validations:
-	required: true
+      required: true
 
   - type: input
     id: reactmig_incident_paturn
