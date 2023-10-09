@@ -6,28 +6,30 @@ body:
     id: reactmig_functionname
     attributes:
       label: 処理名
-      description: >
-      処理名を記載
+      description: 処理名を記載
     validations:
       required: true
+      
   - type: input
     id: reactmig_incident_desc
     attributes:
       label: 不具合内容
       description: 不具合内容を記載
-      placeholder:不具合内容
     validations:
       required: true
 
   - type: textarea
     id: detail
     attributes:
-      label:インシデント内容
-      description:> フォーマットに従って記載してください。
+      label: インシデント内容
+      description: > フォーマットに従って記載してください。
       plaveholder: >
     	**再現手順**
-	    **期待値**
-	    **確認結果**
+     
+	**期待値**
+ 
+	**確認結果**
+ 
       render: markdown
     validations:
 	required: true
@@ -36,28 +38,27 @@ body:
     id: reactmig_incident_paturn
     attributes:
       label: 発生率
-      description: 発生率を記載
-      placeholder:発生率 (y/10)
+      description: 発生率を記載(y/10)
     validations:
       required: true
 
-  - type: input
+  - type: textarea
     id: reactmig_testcase_type
     attributes:
       label: テスト種類・テストケース
-      description: テスト種類・テストケース
-      placeholder:>
+      description: テストケースの種類およびテストケース番号
+      placeholder: >
        テストケースの種類：検証指図書/ユースケース
        テストケース番号：
     validations:
       required: false
 
-  - type: 
+  - type: textarea 
     id: reactmig_testcase_paturn
     attributes:
       label: テスト項目内/テスト項目外
       description: 不具合はテスト項目内・外を選択してください
-      placeholder:>
+      placeholder: >
        テストケースの種類：検証指図書/ユースケース
        テストケース番号：
     validations:
@@ -66,7 +67,7 @@ body:
   - type: dropdown
     id:reactmig_find_by_testcase
     attriutes:
-	label:テスト項目内/テスト項目外の判断
+	label: テスト項目内/テスト項目外の判断
 	description: >摘出不具合はテストケースからですか？探索型テストですか？
 	options:
 	  - テストケースから摘出
@@ -75,52 +76,42 @@ body:
     validations:
       required: true
 
-  - type: 
+  - type: input
     id: reactmig_start_modification_date
     attributes:
       label: 開発着手予定日
       description: 開発着手予定日
-      placeholder:>
-       yyyy/mm/dd
     validations:
       required: false
 
-  - type: 
+  - type: input 
     id: reactmig_end_modification_date
     attributes:
       label: 開発終了予定日
       description: 開発終了予定日
-      placeholder:>
-       yyyy/mm/dd
     validations:
       required: false
 
-  - type: 
+  - type: input 
     id: reactmig_modification_days
     attributes:
       label: 予定工数
       description: 予定工数
-      placeholder:>
-       dd
     validations:
       required: false
 
-  - type: 
+  - type: input 
     id: reactmig_modification_days
     attributes:
       label: 予定工数
       description: 予定工数
-      placeholder:>
-       dd
     validations:
       required: false
 
-  - type: 
+  - type:input 
     id: reactmig_modificator
     attributes:
       label: 修正担当者を入力
       description: 修正担当者名
-      placeholder:>
-       xxxx
     validations:
       required: false
