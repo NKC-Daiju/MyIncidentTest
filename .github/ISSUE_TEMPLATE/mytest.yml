@@ -100,4 +100,4 @@ body:
       description: 修正担当者名
     validations:
       required: false
-    validations:
+    
