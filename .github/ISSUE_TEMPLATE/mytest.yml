@@ -77,5 +77,19 @@ body:
     validations:
       required: false
 
+  - type: input 
+    id: reactmig_modification_days
+    attributes:
+      label: 予定工数
+      description: 予定工数
+    validations:
+      required: false
 
+  - type: input 
+    id: reactmig_modificator
+    attributes:
+      label: 修正担当者を入力
+      description: 修正担当者名
+    validations:
+      required: false
     
