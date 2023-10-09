@@ -63,7 +63,8 @@ body:
   - type: dropdown
     id: reactmig_find_by_testcase
     attriutes:
-	label: テスト項目内/テスト項目外の判断
+	label: テスト項目内・項目外の判断
+	description: 摘出不具合はテストケースからですか？探索型テストですか？
 	options:
 	  - テストケースから摘出
 	  - 探索型テストから摘出
