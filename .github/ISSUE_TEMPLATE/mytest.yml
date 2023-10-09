@@ -22,12 +22,11 @@ body:
     id: detail
     attributes:
       label: インシデント内容
-      description: | 
-      インシデント内容を記載してください。
+      description: インシデント内容を記載してください。
+      value:
        - **再現手順**
        - **期待値**
        - **確認結果**
-      render markdown
     validations:
       required: true
 
@@ -62,7 +61,7 @@ body:
       required: false
 
   - type: dropdown
-    id:reactmig_find_by_testcase
+    id: reactmig_find_by_testcase
     attriutes:
 	label: テスト項目内/テスト項目外の判断
 	description: 摘出不具合はテストケースからですか？探索型テストですか？
