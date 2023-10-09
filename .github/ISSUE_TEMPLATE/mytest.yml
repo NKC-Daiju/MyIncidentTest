@@ -22,11 +22,14 @@ body:
     id: detail
     attributes:
       label: インシデント内容
-      description:  フォーマットに従って記載してください。
-      value: |
-    	- 再現手順: 
-	- 期待値:
-	- 確認結果:
+      description: |
+      フォーマットに従って記載してください。
+       	- **再現手順**
+	
+	- **期待値**
+ 
+	- **確認結果**
+ 
       render: markdown
     validations:
 	required: true
