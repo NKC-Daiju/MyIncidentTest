@@ -59,3 +59,15 @@ body:
        テストケース番号：
     validations:
       required: false
+      
+  - type: dropdown
+    id: reactmig_find_by
+    attriutes:
+      label: テスト項目内・項目外の判断
+      description: 摘出不具合はテストケースからですか？探索型テストですか？
+      options:
+       - テストケースから摘出
+       - 探索型テストから摘出
+      default: 0
+    validations:
+      required: true
