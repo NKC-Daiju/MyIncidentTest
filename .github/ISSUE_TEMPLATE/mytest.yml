@@ -62,5 +62,46 @@ body:
       options: 
        - label: テストケースから摘出
        - label: 探索型テストから摘出
+      default: 0
+    validations:
+      required: false
+
+  - type: input
+    id: reactmig_start_modification_date
+    attributes:
+      label: 開発着手予定日
+      description: 開発着手予定日
+    validations:
+      required: false
+
+  - type: input 
+    id: reactmig_end_modification_date
+    attributes:
+      label: 開発終了予定日
+      description: 開発終了予定日
+    validations:
+      required: false
+
+  - type: input 
+    id: reactmig_modification_days
+    attributes:
+      label: 予定工数
+      description: 予定工数
+    validations:
+      required: false
+
+  - type: input 
+    id: reactmig_modification_days
+    attributes:
+      label: 予定工数
+      description: 予定工数
+    validations:
+      required: false
+
+  - type: input 
+    id: reactmig_modificator
+    attributes:
+      label: 修正担当者を入力
+      description: 修正担当者名
     validations:
       required: false
