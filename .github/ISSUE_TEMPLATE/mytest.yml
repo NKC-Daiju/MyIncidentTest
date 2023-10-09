@@ -9,7 +9,6 @@ body:
       description: 処理名を記載
     validations:
       required: true
-      
   - type: input
     id: reactmig_incident_desc
     attributes:
@@ -17,7 +16,6 @@ body:
       description: 不具合内容を記載
     validations:
       required: true
-
   - type: textarea
     id: detail
     attributes:
@@ -29,7 +27,6 @@ body:
        - **確認結果**
     validations:
       required: true
-
   - type: input
     id: reactmig_incident_paturn
     attributes:
@@ -37,7 +34,6 @@ body:
       description: 発生率を記載(y/10)
     validations:
       required: true
-
   - type: textarea
     id: reactmig_testcase_type
     attributes:
@@ -48,7 +44,6 @@ body:
        テストケース番号：
     validations:
       required: false
-
   - type: textarea 
     id: reactmig_testcase_paturn
     attributes:
@@ -59,14 +54,13 @@ body:
        テストケース番号：
     validations:
       required: false
-      
-  - type: dropdown
+  - type: checkboxes
     id: method
     attriutes:
       label: テスト項目内外の判断
       description: 摘出不具合はテストケースまたは探索型テストのどちらか
       options:
-       - テストケースから摘出
-       - 探索型テストから摘出
+       - label: テストケースから摘出
+       - label: 探索型テストから摘出
     validations:
       required: false
