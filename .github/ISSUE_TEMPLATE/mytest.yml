@@ -59,15 +59,3 @@ body:
        テストケース番号：
     validations:
       required: false
-
-  - type: checkboxes
-    id: reactmig_find_by
-    attriutes:
-      label: テスト項目内・項目外の判断
-      description: 摘出不具合の発見場所
-      options:
-       - label: テストケースから摘出
-       - label: 探索型テストから摘出
-    validations:
-      required: true
-
