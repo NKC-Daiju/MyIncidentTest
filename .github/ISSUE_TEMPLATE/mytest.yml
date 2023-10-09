@@ -58,7 +58,7 @@ body:
     id: method
     attriutes:
       label: テスト項目内外の判断
-      options:
+      options: 
        - label: テストケースから摘出
        - label: 探索型テストから摘出
     validations:
