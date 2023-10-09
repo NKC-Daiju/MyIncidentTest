@@ -25,11 +25,8 @@ body:
       description:  フォーマットに従って記載してください。
       placeholder: |
     	**再現手順**
-     
 	**期待値**
- 
 	**確認結果**
- 
       render: markdown
     validations:
 	required: true
