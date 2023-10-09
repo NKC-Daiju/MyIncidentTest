@@ -23,7 +23,7 @@ body:
     attributes:
       label: インシデント内容
       description:  フォーマットに従って記載してください。
-      placeholder: >
+      placeholder: |
     	**再現手順**
      
 	**期待値**
