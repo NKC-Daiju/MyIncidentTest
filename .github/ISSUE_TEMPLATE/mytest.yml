@@ -52,8 +52,8 @@ body:
   - type: textarea 
     id: reactmig_testcase_paturn
     attributes:
-      label: テスト項目内/テスト項目外
-      description: 不具合はテスト項目内・外を選択してください
+      label: テストケースの種類
+      description: テストケースの種類と番号を入力してください
       placeholder: >
        テストケースの種類：検証指図書・ユースケース
        テストケース番号：
@@ -71,10 +71,3 @@ body:
     validations:
       required: true
 
-  - type: input
-    id: reactmig_start_modifi_date
-    attributes:
-      label: 開発着手予定日
-      description: 開発着手予定日
-    validations:
-      required: false
