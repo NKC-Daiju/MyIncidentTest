@@ -1,0 +1,85 @@
+11-5.スケジューラの開発（その2）
+～管理者メニューの作成～
+
+11-4でログイン画面を作成しました。ログインしたユーザーがAdministratorグループに属しているかどうかをストアドプロシージャで判断し、属しているときのみ管理画面のメニューが表示されるようにしました。また、Sessionクラスを使用し、ユーザー名とパスワードをCookieを使用して管理するようにしました。以後のアクセスは書き込まれたCookieを使用して行うようにしていきます。
+管理メニューを表示するadminFormClassが実行されると、4つのメニューが表示されます。図11-5-1は管理者メニューのメニュー体系を表したものです。
+
+図11-5-1.管理者メニューの体系
+(fig11-5-1.gif)
+
+それぞれの機能が異なるサーブレットにしているのは、機能の拡張をしやすくするためです。管理メニューだけでなく、スケジューラや会議室予約の機能についても単独のサーブレットとして実装し、メインメニューに登録（リンクしておくこと）するようにしておきます。こういった形で実装することで機能の追加・改良を容易にしています。
+管理者メニューを表示するadminFormClassクラスは単にメニューを出力するだけですので、GenericServletクラスのServiceメソッドを使用して管理者メニューを表示するHTMLドキュメントを生成します。
+adminFormClassクラスのコードはソース11-5-1のようになります。クライアントからのリクエストがあるとHTMLドキュメントを生成するだけの非常に基本的なサーブレットですので、とくに説明は必要ないと思います。
+
+ソース11-5-1.管理者メニューを表示するadminFormClassクラス
+/*------------------------------------------------------------
+   Firebird Scheduler
+   ファイル: adminFormClass.java
+   内容:管理者メニューの生成
+   copyright(c) 2002 Daiju Kato
+--------------------------------------------------------------*/
+package fbschedule;
+
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.io.*;
+import java.util.*;
+
+public class adminFormClass extends HttpServlet {
+//グローバル変数の初期化
+
+  public void init(ServletConfig config) throws ServletException {
+    super.init(config);
+  }
+//リクエストのサービス
+
+  public void service(HttpServletRequest request, HttpServletResponse response)
+    throws ServletException, IOException {
+    String username, password;
+    response.setContentType("text/html;charset=sjis");
+    PrintWriter out = new PrintWriter(
+      new OutputStreamWriter(response.getOutputStream(), "SJIS"));
+    out.println("<html>");
+    out.println("<head><title>Firebird Scheduler 管理者メニュー</title></head>");
+  	out.println("<body background=\"images/BCG_006.GIF\">");
+  	out.println("<center><img SRC=\"images/ADMINMENU.gif\"></center><BR><HR>");
+    //for Debug
+    //ログインした情報の取得
+    HttpSession session = request.getSession(true); //Sessionのチェック
+    //書き込まれているユーザーとパスワードの情報を取得
+    username = (String)session.getValue("username");
+    password = (String)session.getValue("password");
+
+    out.println("<TABLE ALIGN=\"CENTER\"><TR>");
+    //ユーザー登録画面 : userRegisterClassの呼び出し
+    out.println("<TD><A HREF=\"./userreg\">"
+              +"<IMG SRC=\"images/usericon.gif\"></TD></A>");
+    //グループ登録画面
+    //実装していません ----
+    out.println("<TD><A HREF=\"./groupreg\">"
+              +"<IMG SRC=\"images/group.gif\"></TD></A>");
+    //実装していません ----
+    //施設登録画面
+    out.println("<TD><A HREF=\"./roomreg\">"
+              +"<IMG SRC=\"images/room.gif\"></TD></A>");
+    //実装していません ----
+    //休日登録画面 :
+    out.println("<TD><A HREF=\"./dayreg\">"
+              +"<IMG SRC=\"images/holiday.gif\"></TD></A></TR>");
+    out.println("</TABLE></B></FONT><HR>");
+    //再ログイン画面
+    out.println("<div align=right>");
+    out.println("<A HREF=\"./loginform\">"
+              +"<IMG SRC=\"images/B03E13.GIF\"></A><HR>");
+    out.println("<p><i><font color=\"#99FF99\">copyright(c) 2002 Daiju Kato</font></i></div>");
+    out.println("</body></html>");
+    out.close();
+  }
+}
+
+fig11-5-2.管理者メニューの表示
+(fig11-5-2.bmp)
+
+今回作成するスケジューラではユーザー登録は実装しますがそれ以外の管理者メニューはメニューのみとして実装は行っていません。興味がある人はユーザー登録をベースに行ってみてください。
+
+

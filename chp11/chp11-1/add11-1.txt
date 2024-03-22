@@ -1,0 +1,13 @@
+追加A
+
+Javaプログラムを追加するには、Javaコンパイラが必要となります。ここでは、J2SE Version 1.4を利用してコンパイルを行う方法について説明しておきましょう。サーブレットをコンパイルするには事前にTomcat 4.0のインストールが必要になります。ここでは、C:\Tomcat4.0にTomcat 4.0が導入されているものとして説明します。Javaプログラムをコンパイルするには必要なパッケージにクラスパスをとおしておく必要があります。サーブレットの場合、Tomcatのservlet.jarのクラスパスへの設定が必要となります。クラスパスの設定後、javaコンパイラを使用し、ソースコードのコンパイルを行います。
+コンパイル後、Tomcatのwebappsディレクトリにコピーします。ここでは、webapps\ROOT\WEB-INF\classeseディレクトリにコピーして、http://localhost/servlet/Helloでアクセスできるようにしています。
+
+	環境変数の設定
+	c:\source>SET JAVA_HOME=C:\j2sdk1.4.0_01
+	c:\source>SET CLASSPATH=C:\Tomcat4.0\common\lib\servlet.jar
+	Hello.javaのコンパイル
+	c:\source>javac Hello.java
+	コンパイルしたHello.classをTomcatにコピー
+	c:\source>copy Hello.class c:\tomcat4.0\webapps\ROOT\WEB-INF\CLASSESE
+

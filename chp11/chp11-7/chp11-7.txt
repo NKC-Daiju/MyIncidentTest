@@ -1,0 +1,815 @@
+11-7.スケジューラの開発（その4）
+～スケジュール登録機能の作成～
+
+11-6にてスケジューラの管理機能であるユーザーの登録・編集機能を実装しました。続いてはスケジューラの主機能であるスケジュールの管理機能を実装します。スキーマは将来拡張を踏まえて、グループのスケジュールと個人のスケジュールと分けて登録できるようにしていますが、ここでは個人のスケジュールの管理機能のみを実装します。
+
+スケジュール画面の流れをどのようにするか考えてみましょう。スケジュール機能には、スケジュールの表示、変更、削除という3つの機能が必要となります。今回は表示するスケジュールを1週間単位とし、前週および次週へ移動する機能も必要となります。これまでの画面の入力を行うと、最初の画面を生成するdoGet()メソッドからdoPost()を呼び出すようにしてやれば良かったのですが、前週、次週のボタンの働きを考えると同じメソッドが繰り返し呼ばれる方がいいですので、スケジュール画面ではservice()メソッドを使用します。ただ、service()メソッドを使用するだけでは、スケジュールの登録などの処理に移れませんので、JavaScriptを使用して動的にリンク先を切り替えていきます。この画面で使っているテクニックはちょっと難しいものかもしれませんが、サーブレットとJavaScriptを使用できるようになると機能の幅を増やしていくことができますので、頑張って理解するようにして下さい。
+スケジュールを表示するためのHTMLのテーブルを用意する必要があります。こちらのテーブルは日曜日から月曜日までの7日間と0時から23時までの24時間を表示します。テーブルを生成する要素をJavaの配列として用意することで、簡単にスケジュールとコードとを一致できるようになります。
+次のような定義で、文字列を持つ2次元配列としてweeklyFormatオブジェクトを用意し、要素数を8x25として確保します。
+
+  String[][] weeklyFormat= new String[7][25];
+
+8x25なのはそれぞれ、日と時間の見出しを含んでいるからです。このオブジェクトの中に登録しているスケジュールを入れていきます。scheduleClassクラスが起動されたときに、この配列にデータベースに納められているスケジュールを読み出して格納してやる必要がありますが、そのときに、誰のスケジュールであるかを調べる必要があります。Cookieに納められているusernameを使用して表示するスケジュールをデータベースから取得します。
+
+   リスト11-7-1.個人スケジュールの取得するSQL文
+    String s="SELECT U.ACCOUNT, S.START_DATE, S.END_DATE,S.COMMENT FROM SCHEDULE S "
+          +"INNER JOIN USERINFO U ON S.OWNER_ID=U.USER_ID AND "
+                +"S.OWNER_ID = ("
+                   +"SELECT U.USER_ID FROM USERINFO U WHERE U.ACCOUNT=\""
+                   +username+"\") "
+                  +"AND S.IS_GROUP=0 "
+                  +"AND S.START_DATE>=\""+basedSunday
+                  +"\" AND S.END_DATE<\""+nextSunday
+                  +"\" ORDER BY S.START_DATE";
+
+リスト11-7-1は個人のスケジュールを表示するSQL文を作成しています。スケジュールは１週間単位で表示しますので必ず表示する週の日曜日と次の週の日曜日を設定する必要があります。例えば、今日の日付から今週の日曜日を取得するにはリスト11-7-2のようなコードを書きます。今日が何曜日かどうかを調べます。DateクラスのgetDay()メソッドを呼び出すことで曜日を取得することができます。0なら日曜日で6が土曜日です。Dateクラスではlong型の数値で日付を管理しておりミリ秒単位です。そのため、日付の計算として１日のミリ秒数をベースに行っています。
+
+   リスト-11-7-2.日曜の日付を取得する  
+       DateFormat df=DateFormat.getDateInstance(
+                   DateFormat.DEFAULT,Locale.JAPANESE);
+       Date basedDate = new Date();
+      if (basedDate.getDay()==0) {
+          //日曜日の場合
+          basedSunday = df.format(basedDate);
+      } else {
+          //日曜日以外の場合
+          //1日のミリ秒数
+         int oneDayMilSec = 60*60*24*1000;
+          basedSunday = df.format(new Date(Date.parse(today)
+                      -(basedDate.getDay()*oneDayMilSec)));
+      }
+
+リスト11-7-1および11-7-2の内容をベースにweeklyFormat配列に既存のスケジュールを入力します。配列の1次元目は曜日、2次元目は時間になりますのでそれを理解すれば簡単に格納することができます。また、スケジュールが1時間以上の場合は同じ内容を配列に書き込みます。リスト11-7-3は既存スケジュールを配列に格納するcheckScheduleメソッドをの一部です。表示したい週の日曜日と次の日曜日を計算し、それをSQL文の条件してデータを取得しています。取得した結果を配列に書き込んでいます。会議室予約はグループで登録される可能性もありますので同様にグループのスケジュールも取得します。トリガーで自動的に、会議室予約は個人のスケジュールにも反映されていますのでSCHEDULEテーブルのIS_GROUPフィールドの値を見れば、個人かグループかを判断することができます。配列に入れる方法は個人の場合と同じで使用するSQL文が異なるだけとなります(リスト11-7-4)。
+
+   リスト11-7-3.既存のスケジュールを取得するcheckScheduleメソッド
+    //既存スケジュールの取得
+    private void checkSchedule(String basedSunday)throws Exception{
+    int days,hours,span;
+    java.sql.Time startTime,endTime;
+    java.sql.Date startDate;
+
+    DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.JAPANESE);
+    java.util.Date dBasedSunday=new java.util.Date(basedSunday);
+    df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.US);
+　  //表示したい週の日曜日の取得
+    basedSunday=df.format(dBasedSunday);
+　  //次の週の日曜日の取得
+    String nextSunday=df.format(new java.util.Date(
+                    java.util.Date.parse(basedSunday)+7*oneDayMilSec));
+    java.sql.Statement statement = conn.createStatement();
+    //個人スケジュールの取得するSQL文
+    String s="SELECT U.ACCOUNT, S.START_DATE, S.END_DATE,S.COMMENT FROM SCHEDULE S "
+          +"INNER JOIN USERINFO U ON S.OWNER_ID=U.USER_ID AND "
+                +"S.OWNER_ID = ("
+                   +"SELECT U.USER_ID FROM USERINFO U WHERE U.ACCOUNT=\""
+                   +username+"\") "
+                  +"AND S.IS_GROUP=0 "
+                  +"AND S.START_DATE>=\""+basedSunday
+                  +"\" AND S.END_DATE<\""+nextSunday
+                  +"\" ORDER BY S.START_DATE";
+    //SQL文の実行
+    java.sql.ResultSet rs = statement.executeQuery(s);
+    while (rs.next()) {
+      //開始時間の取得
+      startDate=rs.getDate("START_DATE");
+	  //終了時間の取得
+      endTime=rs.getTime("END_DATE");
+      days=startDate.getDay();
+      hours=startTime.getHours();
+      //予定の長さの取得
+      span=endTime.getHours()-hours;
+      //配列に書き込み
+      weeklyFormat[days][hours+1]=rs.getString("COMMENT");
+      if (span>1) {
+        //1時間以上の予定の場合
+        for (int i=1;i<=span;i++) {
+            weeklyFormat[days][hours+i]=rs.getString("COMMENT");
+         }
+      }
+    }
+    rs.close();
+
+
+  リスト11-7-4.グループスケジュールを取得するSQL文
+    //グループスケジュールを取得するSQL文の生成
+    s="SELECT G.GROUP_NAME, S.START_DATE, S.END_DATE,S.COMMENT FROM SCHEDULE S "
+       +"INNER JOIN GROUP_DATA G ON S.GROUP_NO=G.GROUP_NO "
+       +"AND S.GROUP_NO IN (select D.GROUP_NO FROM GROUP_DATA D,  GROUP_INFO I "
+       +"WHERE D.GROUP_NO=I.GROUP_NO "
+       +"AND I.USER_ID=(select USER_ID FROM USERINFO WHERE ACCOUNT='"+username+"')) "
+       +"AND S.IS_GROUP=1 "
+       +"AND S.START_DATE>='"+basedSunday
+       +"' AND S.END_DATE<'"+nextSunday
+       +"' ORDER BY S.START_DATE";
+
+
+スケジュールを格納した配列が作成できたら、それをテーブルとして表示します。各時間のスケジュールを登録できるようにするため、テーブルの要素にそれぞれリンクを用意し、選択できるようにします。また、前週および次週を表示するためのボタン(イメージボタン)を用意してやる必要があります。スケジュールの登録などの処理と他の週のスケジュールを表示するクラスは別のものになりますので、ここでJavaScriptを活用してリンク先を変更します。
+今回は、setActionという一つのJavaScriptの関数を用意し、この関数でリンク先を判断します。こちらの関数の引数は次のようになっており、アクションタイプによりどういった処理かを判断するようにします。もし、スケジュールの登録であれば、選択した日付と時間が格納されるようになります。
+
+setAction(<アクションタイプ:0=他の週、1=スケジュール処理>,<選択した日付>,<選択した時間>);
+ 
+リスト11-7-5はjavaScriptを生成するwriteJavaScriptメソッドでsetAction関数を吐き出すルーチンです。前述したようにアクションタイプによって処理を変更するようになっており、スケジュール処理の場合はsetScheduleクラスを呼び出すようにしています。通常、フォームのアクションはpostを使用しますが、postでは動作しないので他のgetを使用して、他のServletにデータを渡しています。actionType,basedDay, basedHourはフォームのhiddenオブジェクトで呼び出すServletに私を渡します。
+
+  リスト11-7-5.他の週の表示かスケジュール処理かを判断してリンク先を変更するJavaScript
+  //JavaScriptの生成するメソッド
+  void writeJavaScript(PrintWriter out){
+    out.println("<SCRIPT language=\"JAVASCRIPT\">");
+    out.println("function setAction(ntype,sDate,basedHour){");
+    out.println("if(ntype==0){document.forms[0].basedDay.value=sDate;}");
+    out.println("else{document.forms[0].basedDay.value=sDate;"
+                +"document.forms[0].action=\"./schedule\";"
+                +"document.forms[0].method=\"get\";"
+                +"document.forms[0].basedHour.value=basedHour;}");
+    out.println("document.forms[0].submit();}");
+    out.println("</SCRIPT>");
+  }
+
+他の週の選択のため、リスト11-7-6のcreateNavigatorメソッドを用意し、リンク先にsetAction関数を指定し、アクションタイプに0を指定します。
+
+  リスト11-7-6.前週、翌週のボタンの作成
+  //ナビゲータボタンの作成
+  void createNavigator(PrintWriter out, String basedSunday) {
+     String nextSunday, previousSunday;
+     DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.JAPANESE);
+     nextSunday=df.format(new java.util.Date(
+                   java.util.Date.parse(basedSunday)+7*oneDayMilSec));
+     previousSunday =df.format(new java.util.Date(
+                   java.util.Date.parse(basedSunday)-7*oneDayMilSec));
+     //前週に
+     out.println("<CENTER>");
+     out.println("<A HREF=javascript:setAction(0,\""
+                 +previousSunday+"\",0)><IMG SRC=\"/images/MAR_137.gif\"></A>");
+     //翌週に
+     out.println("<A HREF=javascript:setAction(0,\""
+                 +nextSunday+"\",0)><IMG SRC=\"/images/MAR_141.gif\"></A><BR></CENTER>");
+  }
+
+
+weeklyFormatの内容をテーブルとして出力すれば、スケジューラ画面の完成です。
+
+図11-7-1.スケジューラの画面
+(FIG11-7-1.BMP)
+
+
+続いて、スケジュールの更新処理を実装します。スケジュールの画面から登録したい日時が選択されると、javaScriptによりsetScheduleClassクラスが呼び出されます。まず、選択された日時にスケジュールがあるかどうかを判断します。判断は、リスト11-7-7のSQL文を実行することで行っています。ここではカウント文を使用しています。日時をキーとしてデータの検索を行います。もし、既存スケジュールがある場合は変更または削除処理を行い、ない場合は新規の処理として扱います。
+
+     リスト11-7-7.新規スケジュールかどうかの判断を行うSQL文
+     String s="SELECT COUNT(S.COMMENT) FROM SCHEDULE S "
+             +"INNER JOIN USERINFO U ON S.OWNER_ID=U.USER_ID AND "
+                   +"S.OWNER_ID = ("
+                      +"SELECT U.USER_ID FROM USERINFO U WHERE U.ACCOUNT=\""
+                      +username+"\") "
+                   +"AND S.IS_GROUP=0 "
+                   +"AND S.START_DATE=\""+regSchedule+"\"";
+
+
+スケジュールの処理内容（新規、変更、削除）が決まったら、入力された情報をもとにスケジュールの登録処理を行います。処理はすべてSQL文を発行します。リスト-11-7-8のwriteScheduleメソッドがこれらの処理を行っています。この中で、日付を文字列に変換していますが、これはFirebirdが扱える日付のフォーマットがmm/dd/yy形式(09/30/99など)またはdd-mm-yy(30-Sep-99など)なので、このフォーマットに変更し、時間と合成しています。
+
+  リスト-11-7-8.スケジュール処理を行うwriteScheduleメソッド
+  private void writeSchedule(PrintWriter out, String regSchedule,
+                 String regSpan, String regComment, int actionType) {
+
+     //Firebirdの日付フォーマットはU.S.形式
+     DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.US);
+     //スケジュールの終了時間
+     java.util.Date endDate=new java.util.Date(java.util.Date.parse(regSchedule)
+                  +Integer.parseInt(regSpan)*60*60*1000);
+     basedDay= df.format(endDate);
+     String sEndDate=basedDay+' '+endDate.getHours()+":00:00";
+     try {
+           //ユーザーIDの取得
+           getOwerId(out);
+     } catch (Exception e){
+       e.printStackTrace();
+     }
+     //SQL文の設定
+     String s="";
+     switch (actionType){
+        //追加
+        case 0:
+               s="INSERT INTO SCHEDULE "
+                 +"(OWNER_ID,START_DATE,END_DATE,COMMENT) "
+                 +"VALUES ("
+                 +owner_id+",\""+regSchedule+"\",\""
+                 +sEndDate+"\",\""+regComment+"\")";
+               break;
+        //変更
+        case 1:
+               s="UPDATE SCHEDULE "
+                +" SET END_DATE=\""+sEndDate
+                +"\",COMMENT=\""+regComment+"\" "
+                +"WHERE OWNER_ID="+Integer.toString(owner_id)
+                +"AND START_DATE=\""+regSchedule+"\" AND IS_GROUP=0";
+               break;
+        //削除
+        case 2:
+               s="DELETE FROM SCHEDULE "
+                +"WHERE OWNER_ID="+Integer.toString(owner_id)
+                +" AND START_DATE=\""+regSchedule+"\" AND IS_GROUP=0";
+               break;
+     }
+     try {
+          java.sql.Statement statement = dbIBSchedule.createStatement();
+          //SQL文の実行(スケジュールの登録)
+          statement.executeUpdate(s);
+     } catch (Exception e){
+         e.printStackTrace();
+     }
+  }
+
+
+登録が完了したら、スケジュールの表示画面へと戻れるように、登録されたスケジュールが画面に表示されるようにします。こちらの処理は単純にshceduleClassクラスを呼び出してやるだけです。
+
+  図11-7-2.スケジュールの登録
+ (fig7-11-2.bmp)
+
+  図11-7-3.スケジューラ登録完了画面
+ (fig7-11-3.bmp)
+
+ 図11-7-4.2002/10/07にスケジュールが入力されたところ
+  (fig7-11-4.bmp)
+
+ 
+ リスト7-11-9.scheduleClassクラス
+/*------------------------------------------------------------
+   Firebird Scheduler
+   ファイル: scheduleClass.java
+   内容:スケジュール画面の生成
+   copyright(c) 2002 Daiju Kato
+--------------------------------------------------------------*/
+package fbschedule;
+
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.io.*;
+import java.util.*;
+import java.text.*;
+import java.sql.*;
+
+public class scheduleClass extends HttpServlet {
+
+//グローバル変数の初期化
+  String[][] weeklyFormat= new String[7][25];
+  int oneDayMilSec = 60*60*24*1000;
+  String username,password;
+  private Connection conn;
+
+  public void init(ServletConfig config) throws ServletException {
+    super.init(config);
+  }
+
+//HTTP Post リクエストの処理
+  public void service(HttpServletRequest request, HttpServletResponse response)
+    throws ServletException, IOException {
+    String basedDay = "";
+    try {
+       basedDay = request.getParameter("basedDay");
+    } catch (Exception e) {
+         e.printStackTrace();
+    }
+    response.setContentType("text/html;charset=sjis");
+    PrintWriter out = new PrintWriter(
+      new OutputStreamWriter(response.getOutputStream(), "SJIS"));
+    out.println("<html>");
+    out.println("<head><title>Firebird Scheduler</title></head>");
+  	out.println("<body background=\"images/BCG_006.GIF\">");
+  	out.println("<center><img SRC=\"images/TITLE.gif\"></center><BR><HR>");
+    out.print("<form method=\"post\" ");
+    out.print("action=\"");
+    out.print(request.getRequestURI());
+    out.println("\" >");
+
+    //ログインした情報の取得
+    HttpSession session = request.getSession(true); //Sessionのチェック
+    //書き込まれているユーザーとパスワードの情報を取得
+    username = (String)session.getValue("username");
+    password = (String)session.getValue("password");
+
+    //初期化
+    for (int i=0;i<7;i++) {
+       for (int j=0;j<25;j++) {
+          weeklyFormat[i][j]="(空き)";
+       }
+     }
+    if (basedDay==null) {
+       DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.JAPANESE);
+       java.util.Date myDate = new java.util.Date();
+       basedDay= df.format(myDate);
+    }
+    try {
+         //データベースに接続
+         Database dbFBSchedule = new Database();
+         conn=dbFBSchedule.getConnection();
+         createFrame(out,basedDay);
+        //データベースから切断
+         dbFBSchedule.releaseConnection();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    out.println("</body></html>");
+    out.close();
+  }
+
+  //スケジュールの表の作成
+  private void createFrame(PrintWriter out, String today) {
+    DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.JAPANESE);
+    java.util.Date basedDate = new java.util.Date(today);
+    String basedSunday;
+
+    if (basedDate.getDay()==0) {
+       basedSunday = df.format(basedDate);
+    } else {
+       basedSunday = df.format(new java.util.Date(java.util.Date.parse(today)
+                       -(basedDate.getDay()*oneDayMilSec)));
+    }
+    createNavigator(out,basedSunday);
+    out.println("<CENTER><TABLE BORDER=3><TR><TH BGCOLOR=\"white\">時間／日付</TH>");
+    for (int i=0;i<=6;i++){
+        weeklyFormat[i][0]=df.format(new java.util.Date(
+                      java.util.Date.parse(basedSunday)+i*oneDayMilSec));
+        switch (i){
+          //日曜日
+          case 0:out.println("<TH BGCOLOR=\"red\">"+weeklyFormat[i][0]+"</TH>");
+                 break;
+          //土曜日
+          case 6:out.println("<TH BGCOLOR=\"#00FFFF\">"+weeklyFormat[i][0]+"</TH>");
+                 break;
+          default:out.println("<TH BGCOLOR=\"white\">"+weeklyFormat[i][0]+"</TH>");
+        }
+    }
+    out.println("</TR>");
+    try {
+          checkSchedule(basedSunday);
+    } catch (Exception e) {
+              e.printStackTrace();
+    }
+
+    for (int j=1;j<25;j++){
+       out.println("<TR>");
+       out.println("<TD BGCOLOR=\"white\"><CENTER>"+Integer.toString(j-1)+"時</CENTER></TD>");
+       for (int i=0;i<7;i++) {
+          switch (i){
+             case 0:out.println("<TD ALIGN=\"CENTER\" BGCOLOR=\"red\">"
+                  +"<A HREF=javascript:setAction(1,\""
+                  +weeklyFormat[i][0]+"\","+Integer.toString(j-1)+")>"
+                  +weeklyFormat[i][j]
+                  +"</A></TD>");
+                  break;
+             case 6:out.println("<TD ALIGN=\"CENTER\" BGCOLOR=\"#00FFFF\">"
+                  +"<A HREF=javascript:setAction(1,\""
+                  +weeklyFormat[i][0]+"\","+Integer.toString(j-1)+")>"
+                  +weeklyFormat[i][j]
+                  +"</A></TD>");
+                  break;
+             default:out.println("<TD ALIGN=\"CENTER\" BGCOLOR=\"white\">"
+                  +"<A HREF=javascript:setAction(1,\""
+                  +weeklyFormat[i][0]+"\","+Integer.toString(j-1)+")>"
+                  +weeklyFormat[i][j]
+                  +"</A></TD>");
+          }
+       }
+       out.println("</TR>");
+    }
+    out.println("</TABLE></CENTER>");
+    //JavaScriptの生成
+    writeJavaScript(out);
+    //hiddenオブジェクトの生成(アクション内容の保存)
+    out.println("<INPUT TYPE=\"hidden\" NAME=\"basedDay\" VALUE=\"\">");
+    out.println("<INPUT TYPE=\"hidden\" NAME=\"actionType\" VALUE=0>");
+    out.println("<INPUT TYPE=\"hidden\" NAME=\"basedHour\" VALUE=0>");
+    out.println("<BR><HR>");
+    //フッターの生成
+    writeFooter(out);
+    return;
+  }
+
+  //フッターの作成
+  private void writeFooter(PrintWriter out) {
+   	out.println("<div align=right>");
+    out.println("<A HREF=\"./loginform\">"
+               +"<IMG SRC=\"images/B03E13.GIF\"></A><HR>");
+    out.println("<p><i><font color=\"#99FF99\">"
+               +"copyright(c) 2002 Daiju Kato</font></i></div>");
+  }
+
+  //既存スケジュールの取得
+  private void checkSchedule(String basedSunday)throws Exception{
+    int days,hours,span;
+    java.sql.Time startTime,endTime;
+    java.sql.Date startDate;
+
+    DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.JAPANESE);
+    java.util.Date dBasedSunday=new java.util.Date(basedSunday);
+    df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.US);
+    basedSunday=df.format(dBasedSunday);
+    String nextSunday=df.format(new java.util.Date(
+                java.util.Date.parse(basedSunday)+7*oneDayMilSec));
+
+    java.sql.Statement statement = conn.createStatement();
+    //個人スケジュールの取得
+    String s="SELECT U.ACCOUNT, S.START_DATE, S.END_DATE,S.COMMENT FROM SCHEDULE S "
+          +"INNER JOIN USERINFO U ON S.OWNER_ID=U.USER_ID AND "
+                +"S.OWNER_ID = ("
+                   +"SELECT U.USER_ID FROM USERINFO U WHERE U.ACCOUNT=\""
+                   +username+"\") "
+                  +"AND S.IS_GROUP=0 "
+                  +"AND S.START_DATE>=\""+basedSunday
+                  +"\" AND S.END_DATE<\""+nextSunday
+                  +"\" ORDER BY S.START_DATE";
+    java.sql.ResultSet rs = statement.executeQuery(s);
+    while (rs.next()) {
+      startDate=rs.getDate("START_DATE");
+      startTime=rs.getTime("START_DATE");
+      endTime=rs.getTime("END_DATE");
+      days=startDate.getDay();
+      hours=startTime.getHours();
+      span=endTime.getHours()-hours;
+      weeklyFormat[days][hours+1]=rs.getString("COMMENT");
+      if (span>1) {
+        for (int i=1;i<=span;i++) {
+            weeklyFormat[days][hours+i]=rs.getString("COMMENT");
+         }
+      }
+    }
+    rs.close();
+
+    //グループスケジュールの取得
+    java.sql.Statement statement1 = conn.createStatement();
+    s="SELECT G.GROUP_NAME, S.START_DATE, S.END_DATE,S.COMMENT FROM SCHEDULE S "
+       +"INNER JOIN GROUP_DATA G ON S.GROUP_NO=G.GROUP_NO "
+       +"AND S.GROUP_NO IN (select D.GROUP_NO FROM GROUP_DATA D,  GROUP_INFO I "
+       +"WHERE D.GROUP_NO=I.GROUP_NO "
+       +"AND I.USER_ID=(select USER_ID FROM USERINFO WHERE ACCOUNT='"+username+"')) "
+       +"AND S.IS_GROUP=1 "
+       +"AND S.START_DATE>='"+basedSunday
+       +"' AND S.END_DATE<'"+nextSunday
+       +"' ORDER BY S.START_DATE";
+    rs = statement.executeQuery(s);
+    while (rs.next()) {
+      startDate=rs.getDate("START_DATE");
+      startTime=rs.getTime("START_DATE");
+      endTime=rs.getTime("END_DATE");
+      days=startDate.getDay();
+      hours=startTime.getHours();
+      span=endTime.getHours()-hours;
+          if (weeklyFormat[days][hours+1]=="(空き)"){
+            weeklyFormat[days][hours+1]=rs.getString("COMMENT");
+          } else {
+            weeklyFormat[days][hours+1]=weeklyFormat[days][hours+1]
+            +rs.getString("COMMENT");
+          }
+      if (span>1) {
+        for (int i=1;i<=span;i++) {
+            weeklyFormat[days][hours+i]=weeklyFormat[days][hours+i]
+                   +rs.getString("COMMENT");
+         }
+      }
+    }
+    rs.close();
+  }
+
+  //ナビゲータボタンの作成
+  void createNavigator(PrintWriter out, String basedSunday) {
+     String nextSunday, previousSunday;
+     DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.JAPANESE);
+     nextSunday=df.format(new java.util.Date(
+                java.util.Date.parse(basedSunday)+7*oneDayMilSec));
+     previousSunday =df.format(new java.util.Date(
+                java.util.Date.parse(basedSunday)-7*oneDayMilSec));
+     //前週に
+     out.println("<CENTER>");
+     out.println("<A HREF=javascript:setAction(0,\""
+                 +previousSunday+"\",0)><IMG SRC=\"images/MAR_137.gif\"></A>　　　");
+     //翌週に
+     out.println("<A HREF=javascript:setAction(0,\""
+                 +nextSunday+"\",0)><IMG SRC=\"images/MAR_141.gif\"></A><BR></CENTER>");
+  }
+
+  //JavaScriptの生成
+  void writeJavaScript(PrintWriter out){
+    out.println("<SCRIPT language=\"JAVASCRIPT\">");
+    out.println("function setAction(ntype,sDate,basedHour){");
+    out.println("if(ntype==0){document.forms[0].basedDay.value=sDate;}");
+    out.println("else{document.forms[0].basedDay.value=sDate;"
+                +"document.forms[0].action=\"./setschedule\";"
+                +"document.forms[0].method=\"get\";"
+                +"document.forms[0].basedHour.value=basedHour;}");
+    out.println("document.forms[0].submit();}");
+    out.println("</SCRIPT>");
+  }
+}
+
+
+リスト7-11-10.setSchedule.java
+/*------------------------------------------------------------
+   Firebird Scheduler
+   ファイル: setScheduleClass.java
+   内容:スケジュールの登録画面の生成
+   copyright(c) 2002 Daiju Kato
+--------------------------------------------------------------*/
+package fbschedule;
+
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.io.*;
+import java.util.*;
+import java.text.*;
+import java.sql.*;
+
+public class setScheduleClass extends HttpServlet {
+//グローバル変数の初期化
+  String username, password, regSchedule,regSpan,regComment,actionType,basedDay;
+  int owner_id;
+
+  private Connection conn;
+
+  public void init(ServletConfig config) throws ServletException {
+    super.init(config);
+  }
+//リクエストのサービス
+
+  public void doGet(HttpServletRequest request, HttpServletResponse response)
+        throws ServletException, IOException {
+    //スケジュールを設定する日
+    String basedDay = "";
+    try { basedDay = request.getParameter("basedDay");
+    } catch (Exception e) { e.printStackTrace(); }
+    //スケジュールを設定する時間
+    String basedHour = "";
+    try { basedHour = request.getParameter("basedHour");
+    } catch (Exception e) { e.printStackTrace(); }
+
+    response.setContentType("text/html;charset=sjis");
+    PrintWriter out = new PrintWriter(
+      new OutputStreamWriter(response.getOutputStream(), "SJIS"));
+    out.println("<html>");
+    out.println("<head><title>Firebird Schedulerスケジュール登録</title></head>");
+  	out.println("<body background=\"images/BCG_006.GIF\">");
+    out.println("<H1><CENTER><FONT COLOR=\"#00FFFF\">スケジュール登録</FONT>"
+               +"</CENTER></H1><HR>");
+    out.print("<form method=\"post\" ");
+    out.print("action=\"");
+    out.print(request.getRequestURI());
+    out.println("\" >");
+    //for Debug
+    //ログインした情報の取得
+    HttpSession session = request.getSession(true); //Sessionのチェック
+    username = (String)session.getValue("username");
+    password = (String)session.getValue("password");
+    //スケジュールの新規か更新かをチェックする
+    try {
+        //データベースへの接続
+        Database dbFBSchedule = new Database();
+        conn=dbFBSchedule.getConnection();
+        String comment=checkSchedule(out,basedDay,basedHour);
+        if (comment=="") {
+           //新規の場合
+          out.println("<FONT COLOR=\"white\">内  容:</FONT>"
+                    +"<input \"text\" name=\"regComment\"><BR>");
+          out.println("<FONT COLOR=\"white\">時  間:</FONT><select name=\"regSpan\">");
+          out.println("<OPTION SELECTED>1");
+          out.println("<OPTION>2");
+          out.println("<OPTION>3");
+          out.println("<OPTION>4");
+          out.println("<OPTION>5");
+          out.println("</SELECT><BR>");
+          out.println("<INPUT TYPE=\"submit\" name=\"actionType\" value=\"登録\">");
+       }else {
+          //既存の場合
+          out.println("<FONT COLOR=\"white\">内  容:</FONT>"
+                    +"<input \"text\" name=\"regComment\" "
+                    +"value=\""+comment+"\"><BR>");
+          out.println("<FONT COLOR=\"white\">時  間:</FONT><select name=\"regSpan\">");
+          out.println("<OPTION SELECTED>1");
+          out.println("<OPTION>2");
+          out.println("<OPTION>3");
+          out.println("<OPTION>4");
+          out.println("<OPTION>5");
+          out.println("</SELECT><BR>");
+          out.println("<INPUT TYPE=\"submit\" name=\"actionType\" value=\"削除\">");
+          out.println("　　");
+          out.println("<INPUT TYPE=\"submit\" name=\"actionType\" value=\"変更\">");
+       }
+       out.println("<INPUT TYPE=\"hidden\" name=\"regSchedule\" "
+               +"value=\""+regSchedule+"\">");
+       //データベースから切断
+       dbFBSchedule.releaseConnection();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    writeFooter(out);
+    out.println("</body></html>");
+    out.close();
+
+  }
+
+  //Post処理
+  public void doPost(HttpServletRequest request, HttpServletResponse response)
+          throws ServletException, IOException {
+    try { regSchedule = request.getParameter("regSchedule"); }
+    catch (Exception e) { e.printStackTrace(); }
+    try { regSpan = request.getParameter("regSpan"); }
+    catch (Exception e) { e.printStackTrace(); }
+    try { regComment = request.getParameter("regComment"); }
+    catch (Exception e) { e.printStackTrace(); }
+    try { actionType = request.getParameter("actionType"); }
+    catch (Exception e) { e.printStackTrace(); }
+
+    int aType;
+    response.setContentType("text/html;charset=sjis");
+    PrintWriter out = new PrintWriter(
+      new OutputStreamWriter(response.getOutputStream(), "SJIS"));
+
+    //入力されたスケジュール情報の取得
+    Hashtable parameters = getParameters(request);
+    regSchedule = (String)parameters.get("regSchedule");
+    regSpan = (String)parameters.get("regSpan");
+    regComment = (String)parameters.get("regComment");
+    actionType = (String)parameters.get("actionType");
+
+    out.println("<html>");
+    out.println("<head><title>Firebird Schedulerスケジュール登録</title></head>");
+  	out.println("<body background=\"images/BCG_006.GIF\">");
+    out.print("<form method=post ");
+    out.print("action=./schedule");
+    out.println(">");
+  	out.println("<H1><CENTER><FONT COLOR=\"#00FFFF\">スケジュール登録</FONT>"
+             +"</CENTER></H2><BR><HR>");
+    aType=0;
+    //アクションの確認
+    if (actionType.indexOf("登録")>=0){
+        aType=0;
+    } else if (actionType.indexOf("変更")>=0) {
+          aType=1;
+    } else { aType=2; }
+    try {
+        //データベースへの接続
+        Database dbFBSchedule = new Database();
+        conn=dbFBSchedule.getConnection();
+        writeSchedule(out,regSchedule,regSpan,regComment,aType);
+        out.println("<H2><FONT COLOR=\"white\">スケジュールを更新しました</FONT></H2><BR><BR>");
+        out.println("<INPUT TYPE=\"submit\" value=\"スケジュールへ\">");
+        out.println("<INPUT TYPE=\"hidden\" value=\""+basedDay+"\">");
+        //データベースから切断
+        dbFBSchedule.releaseConnection();
+    } catch (Exception e ) {
+        e.printStackTrace();
+    }
+    writeFooter(out);
+    out.println("</FORM></BODY></HTML>");
+    out.close();
+  }
+
+  //フッターの作成
+  private void writeFooter(PrintWriter out) {
+   	out.println("<div align=right>");
+    out.println("<A HREF=\"./loginform\">"
+               +"<IMG SRC=\"images/B03E13.GIF\"></A><HR>");
+    out.println("<p><i><font color=\"#99FF99\">"
+               +"copyright(c) 2002 Daiju Kato</font></i></div>");
+  }
+
+  //新規スケジュールか変更かを判断
+  private String checkSchedule(PrintWriter out, String basedDay, String basedHour) {
+     String comment;
+     java.util.Date checkDate = new java.util.Date( java.util.Date.parse(basedDay)
+                       +Integer.parseInt(basedHour)*60*60*1000);
+     //InterBaseの日付フォーマットはU.S.形式なので
+     DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.US);
+     regSchedule=df.format(checkDate)+" "+basedHour+":00:00";
+     //SQL文の作成
+     String s="SELECT COUNT(S.COMMENT) FROM SCHEDULE S "
+             +"INNER JOIN USERINFO U ON S.OWNER_ID=U.USER_ID AND "
+                   +"S.OWNER_ID = ("
+                      +"SELECT U.USER_ID FROM USERINFO U WHERE U.ACCOUNT=\""
+                      +username+"\") "
+                   +"AND S.IS_GROUP=0 "
+                   +"AND S.START_DATE=\""+regSchedule+"\"";
+     try {
+          //既存スケジュールか新規かを確認
+         java.sql.Statement statement = conn.createStatement();
+         java.sql.ResultSet rs = statement.executeQuery(s);
+         rs.next();
+         int recno=rs.getInt("COUNT");
+         //新規の場合
+         if (recno==0) {
+             comment="";
+         } else {
+             //既存の場合はコメントを取得
+             rs.close();
+             s="SELECT S.COMMENT FROM SCHEDULE S "
+                  +"INNER JOIN USERINFO U ON S.OWNER_ID=U.USER_ID AND "
+                        +"S.OWNER_ID = ("
+                            +"SELECT U.USER_ID FROM USERINFO U WHERE U.ACCOUNT=\""
+                            +username+"\") "
+                        +"AND S.IS_GROUP=0 "
+                        +"AND S.START_DATE=\""+regSchedule+"\"";
+             rs = statement.executeQuery(s);
+             rs.next();
+             comment=rs.getString("COMMENT");
+         }
+         rs.close();
+     } catch (Exception e){
+         comment="";
+         e.printStackTrace();
+     }
+   return comment;
+  }
+
+  //スケジュールの更新処理
+  private void writeSchedule(PrintWriter out, String regSchedule,
+                 String regSpan, String regComment, int actionType) {
+
+     //InterBaseの日付フォーマットはU.S.形式なので
+     DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.US);
+     //スケジュールの終了時間
+     java.util.Date endDate=new java.util.Date(java.util.Date.parse(regSchedule)
+                  +Integer.parseInt(regSpan)*60*60*1000);
+     basedDay= df.format(endDate);
+     String sEndDate=basedDay+' '+endDate.getHours()+":00:00";
+     try {
+           getOwerId(out);
+     } catch (Exception e){
+       e.printStackTrace();
+     }
+     //SQL文の設定
+     String s="";
+     switch (actionType){
+        //追加
+        case 0:
+               s="INSERT INTO SCHEDULE "
+                 +"(OWNER_ID,START_DATE,END_DATE,COMMENT) "
+                 +"VALUES ("
+                 +Integer.toString(owner_id)+",\""+regSchedule+"\",\""
+                 +sEndDate+"\",\""+regComment+"\")";
+               break;
+        //変更
+        case 1:
+               s="UPDATE SCHEDULE "
+                +" SET END_DATE=\""+sEndDate
+                +"\",COMMENT=\""+regComment+"\" "
+                +"WHERE OWNER_ID="+Integer.toString(owner_id)
+                +"AND START_DATE=\""+regSchedule+"\" AND IS_GROUP=0";
+               break;
+        //削除
+        case 2:
+               s="DELETE FROM SCHEDULE "
+                +"WHERE OWNER_ID="+Integer.toString(owner_id)
+                +" AND START_DATE=\""+regSchedule+"\" AND IS_GROUP=0";
+               break;
+     }
+     //for Debug
+     //out.println("For Debug<BR>");
+     //out.println("SQL:"+s+"<HR>");
+     //end Debug
+     try {
+          java.sql.Statement statement = conn.createStatement();
+          //SQL文の実行
+          statement.executeUpdate(s);
+     } catch (Exception e){
+         e.printStackTrace();
+     }
+
+  }
+
+  public setScheduleClass() {
+    try  {
+    }
+    catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+
+  //ユーザー名からユーザー番号を取得
+  private void getOwerId(PrintWriter out)
+   throws Exception{
+
+        String s="SELECT USER_ID FROM USERINFO WHERE ACCOUNT=\""+username+"\"";
+        java.sql.Statement statement = conn.createStatement();
+        java.sql.ResultSet rs = statement.executeQuery(s);
+        rs.next();
+        owner_id=rs.getInt("USER_ID");
+        rs.close();
+        return;
+  }
+
+  //送信されたスケジュール情報をハッシュテーブルに格納
+  private Hashtable getParameters(HttpServletRequest request)
+    throws IOException {
+
+    Hashtable data = new Hashtable();
+    Enumeration e = request.getParameterNames();
+    while (e.hasMoreElements()) {
+      String key = (String)e.nextElement();
+      String[] values = request.getParameterValues(key);
+      for (int i=0; i<values.length;i++) {
+          data.put(key, new String(
+              values[i].getBytes("8859_1"),"SJIS"));
+      }
+    }
+    return data;
+  }
+
+}
+
+

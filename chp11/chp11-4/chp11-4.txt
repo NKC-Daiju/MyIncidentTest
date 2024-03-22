@@ -1,0 +1,289 @@
+11-4.スケジューラの開発（その１）
+～ログイン処理からメニュー表示まで～
+
+11-3のスケジューラで使用するスキーマが作成されましたので、プログラムの作成に移りましょう。ここではJBuilderを開発ツールとして使用します。本紙付属のCD-ROMにJBuilder 7 Enterpriseの評価版およびJBuilder 7 Personalが納められておりますので、こちらを使用して本紙で使用したプログラムのコンパイルを行うことができるようになっています。本紙付属のCD-ROMにバイナリも含まれていますが、是非自分自身でコンパイルを行ってみてください。また、JBuilder 7 Enterpriseの評価版では、JBuilderのIDE内でWebアプリケーションの実行・デバッグが行えます。
+
+まず、ログイン処理からメニュー表示までの流れを考えてみましょう。流れを簡単にまとめると図11-4-1のようになります。この流れに従ってサーブレットを作成していきましょう。
+
+図11-4-1.ログイン処理
+(fig11-4-1.bmp)
+
+ブラウザからログイン画面のURLが入力されると、loginFormClassクラスのdoGet()メソッドが起動され、ログイン画面が表示されます（図11-4-2.bmp)
+
+図11-4-2.ログイン画面
+(fig11-4-2.bmp)
+
+ログイン画面でスケジューラのユーザー名とパスワードが入力されてログインボタンが押されると、HTMLのPOSTコマンドにより、サーブレット側にデータが送られます。loginFormClassクラスのdoPost()メソッドのgetParameter()により送られてきたユーザー名とパスワードを受け取ります。ここで、Firebirdにログインし、スケジューラにログインできるかどうかを確認します。ログインの確認はIS_LOGINプロシージャを使用します。IS_LOGINプロシージャにユーザー名とパスワードを受け渡し、1が戻ってきたときはログイン成功となります。
+データベースへの接続は汎用的に使用しますので、今回はDatabaseクラスを作成し、接続時はgetConnection()メソッドで、切断時はreleaseConnection()メソッドで行えるようにします。Databaseクラスのソースコードはリスト11-4-1のようになります。
+
+リスト11-4-1.Databaseクラス(Database.java)
+/****************************************************
+ * Firebird Scheduler
+ *データベースへの接続・切断を行うクラス
+ *Copyright (c) 2002 Daiju Kato
+ *****************************************************/
+package fbschedule;
+
+import java.sql.*;
+import java.io.*;
+import java.util.*;
+
+public class Database {
+
+  //Firebirdに接続時に必要な情報の設定
+  private String DBUser="SYSDBA";
+  private String DBPass="masterkey";
+  private String DBDriver="interbase.interclient.Driver";
+  private String DBURL=
+                 "jdbc:interbase://localhost/c:/data/FB_Schedule.gdb";
+  private String DBCharSet="SJIS";
+  private Connection conn=null;
+
+  //接続を行うgetConnection()メソッド
+  public Connection getConnection() throws Exception {
+    Class.forName(DBDriver);
+    java.util.Properties info = new java.util.Properties();
+    info.put("user",DBUser);
+    info.put("password",DBPass);
+    info.put("charSet",DBCharSet);
+    try {
+          conn = DriverManager.getConnection(DBURL,info);
+          return conn;
+    } catch (Exception e) {
+          e.printStackTrace();
+          return conn;
+    }
+  }
+
+  //切断を行うreleaseConnectionメソッド
+  public void releaseConnection() {
+    try {
+          conn.close();
+    } catch (Exception e) {
+          e.printStackTrace();
+    }
+  }
+}
+
+リスト11-4-2はIS_LOGINプロシージャを呼び出すcheckLogin()メソッドです。JavaからFirebirdの実行プロシージャを使用するには、PreparedStatementインターフェースを使用します。今回のケースではユーザー名とパスワードを入力パラメータとして設定し、接続できるかどうかを返すISLOGINの値を出力パラメータとして受け取ります。他のデータベースでは出力パラメータの設定を行いますが、Firebirdの場合では結果セットを受け取って返値を取得します。
+
+リスト11-4-2.ログイン可能かどうかを返すcheckLoginメソッド(loginFormClass.java)
+  //ユーザー名とパスワードが合っているかを確認
+  private int checkLogin() throws Exception {
+    //プロシージャの設定
+    String sql = "EXECUTE PROCEDURE IS_LOGIN(?,?)";
+    //パラメータ付のSQL文のための準備
+    java.sql.PreparedStatement st =
+            conn.prepareStatement(sql);
+    //入力パラメータとしてユーザー名とパスワードを設定
+    st.setString(1,username);
+    st.setString(2,password);
+    //プロシージャの実行
+    java.sql.ResultSet rs = st.executeQuery();
+    //ログインに成功しているかどうかを確認
+    rs.next();
+    int isLogin=rs.getInt("ISLOGIN");
+    //プロシージャの実行を終了
+    st.close();
+    return isLogin;
+  }
+
+ログインしたユーザーが管理者権限を持っているかどうかについても同様な処理で行うことができます。実行プロシージャを使用する場合のパターンとして理解しておくといいでしょう。
+
+ログインが成功し、管理者権限を持つユーザーの場合は図11-4-3のような管理者メニューのある画面が表示されます。管理者権限のないユーザーの場合では図11-4-4のようになります。
+
+図11-4-3.管理者権限のあるユーザーの場合
+(fig11-4-3.bmp)
+
+図11-4-4.管理者権限のあるユーザーの場合
+(fig11-4-4.bmp)
+
+IS_LOGINプロシージャが1を返すとき、つまりスケジューラにログインできた場合、入力されたユーザー名とパスワードを他のサーブレットでも共有するため、セッション管理を行います。セッション管理は次のようなコードで行っています。
+
+    //Sessionを作成
+    HttpSession session = request.getSession(true);
+    session.putValue("username", username);
+    session.putValue("password", password);
+
+Sessionを作成し、ユーザー名とパスワードを書き込みます。実際にはブラウザのCookieに書き込まれますので、Cookieを受け取るときに警告を発するようにしておくと図11-4-5のように表示されます。また、Tomcatの設定を変更することでCookieを使用しないようにもすることができます。
+
+図11-4-5.Session確立時の警告
+(fig11-4-5.bmp)      
+
+リスト11-4-3は今回、作成したloginFormClassクラスのソースコードです。どのような処理行っているか、再度確認してみるといいでしょう。
+
+
+リスト11-4-3.loginFormClassクラス
+/****************************************************
+ * Firebird Scheduler
+ *ログイン処理を行うクラス
+ *Copyright (c) 2002 Daiju Kato
+ *****************************************************/
+package fbschedule;
+
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.io.*;
+import java.util.*;
+import java.sql.*;
+
+public class loginFormClass extends HttpServlet {
+
+  private Connection conn;
+
+  //スケジューラ用のユーザー名とパスワード
+  private String username="";
+  private String password="";
+
+  //グローバル変数の初期化
+
+  public void init(ServletConfig config) throws ServletException {
+    super.init(config);
+  }
+//HTTP Get リクエストの処理
+
+  public void doGet(HttpServletRequest request, HttpServletResponse response)
+        throws ServletException, IOException {
+    response.setContentType("text/html;charset=sjis");
+    PrintWriter out = new PrintWriter(
+      new OutputStreamWriter(response.getOutputStream(), "SJIS"));
+    out.println("<html>");
+    out.println("<head><title>Firebird Scheduler</title></head>");
+    out.println("<body>");
+  	out.println("<body background=\"images/BCG_006.GIF\">");
+  	out.println("<center><img SRC=\"images/TITLE.gif\"></center><BR><HR>");
+    out.print("<form method=\"post\" ");
+    out.print("action=\"");
+    out.print(request.getRequestURI());
+    out.print("\">");
+    out.println("<B><FONT COLOR=\"#CCFFFF\">ユーザー名:</B></FONT>"
+                        +"<input type=\"text\" name=\"UserName\"><BR>");
+    out.println("<B><FONT COLOR=\"#CCFFFF\">パスワード:</B></FONT>"
+                        +"<input type=\"password\" name=\"Password\"><BR>");
+    out.println("<input type=\"submit\" value=\"ログイン\"><BR>");
+    out.println("<BR><BR><HR>");
+  	out.println("<div align=right>");
+	  out.println("<p><i><font color=\"#99FF99\">"
+                   +"copyright(c) 2002 Daiju Kato</font></i></div>");
+    out.println("</body></html>");
+    out.close();
+  }
+
+//HTTP Post リクエストの処理
+
+  public void doPost(HttpServletRequest request, HttpServletResponse response)
+          throws ServletException, IOException {
+    try { username = request.getParameter("UserName"); }
+    catch (Exception e) { e.printStackTrace(); }
+    try { password = request.getParameter("Password"); }
+    catch (Exception e) { e.printStackTrace(); }
+
+    response.setContentType("text/html;charset=sjis");
+    PrintWriter out = new PrintWriter(
+      new OutputStreamWriter(response.getOutputStream(), "SJIS"));
+    //ユーザー名、パスワードをSessionに書き込み
+    HttpSession session = request.getSession(true);
+    session.putValue("username", username);
+    session.putValue("password", password);
+    out.println("<html>");
+    out.println("<head><title>Firebird Scheduler メニュー</title></head>");
+  	out.println("<body background=\"images/BCG_006.GIF\">");
+  	out.println("<center><img SRC=\"images/MENU.gif\"></center><BR><HR>");
+    try {
+          //データベースに接続
+          Database dbFBSchedule = new Database();
+          conn=dbFBSchedule.getConnection();
+          int isLogin=checkLogin();
+          if (isLogin==1) {
+              int isAdmin=checkAdmin();
+              dbFBSchedule.releaseConnection();
+              //for Debug
+              //out.println("IS_ADMIN"+isAdmin+"<BR>");
+              //Administratorのメンバーのみ管理メニューを表示する
+              out.println("<TABLE ALIGN=\"CENTER\"><TR>");
+              if (isAdmin==1){
+              //管理者メニュー
+                  out.println("<TD><A HREF=\"./admin\">"
+                             +"<IMG SRC=\"images/MAR_397.gif\"></A></TD>");
+               }
+              //スケジューラ
+              out.println("<TD><A HREF=\"./schedule\">"
+                         +"<IMG SRC=\"images/MAR_401.gif\"></A><BR></TD>");
+              //会議室予約
+              out.println("<TD><A HREF=\"./reserve\">"
+                         +"<IMG SRC=\"images/CUT_202.gif\"></A><BR></TD></TR>");
+              out.println("</TABLE></B></FONT><HR>");
+            	out.println("<div align=right>");
+              out.println("<A HREF=\"./loginform\">"
+                         +"<IMG SRC=\"images/B03E13.GIF\"></A>");
+          	  out.println("<p><i><font color=\"#99FF99\">"
+                         +"copyright(c) 2002 Daiju Kato</font></i></div>");
+           } else {
+              out.println("<H2><FONT COLOR=RED><CENTER>パスワードが間違っています。"
+                         +"<BR>再ログインしてください</CENTER></H2></FONT><HR>");
+             	out.println("<div align=right>");
+              out.println("<A HREF=\"./loginform\">"
+                         +"<IMG SRC=\"images/bB03E13.GIF\"></A><HR>");
+          	  out.println("<p><i><font color=\"#99FF99\">"
+                         +"copyright(c) 2002 Daiju Kato</font></i></div>");
+           }
+    } catch (Exception e){
+      //エラーが発生した場合
+      e.printStackTrace();
+      out.println("<H2><FONT COLOR=RED><CENTER>エラーが発生しました。"
+                   +"<BR>再ログインしてください</CENTER></H2></FONT>");
+              out.println("<A HREF=\"./loginform\">"
+                         +"<IMG SRC=\"images/B03E13.GIF\"></A><HR>");
+          	  out.println("<p><i><font color=\"#99FF99\">"
+                         +"copyright(c) 2002 Daiju Kato</font></i></div>");
+    }
+    out.println("</body></html>");
+    out.close();
+  }
+
+
+  public loginFormClass() {
+  }
+
+
+  //Administrator権限を持っているかを確認
+  private int checkAdmin() throws Exception{
+    //プロシージャの設定
+    String sql = "EXECUTE PROCEDURE IS_GROUP(?,?)";
+    //パラメータ付のSQL文のための準備
+    java.sql.PreparedStatement st =
+            conn.prepareStatement(sql);
+    //入力パラメータとしてユーザー名とパスワードを設定
+    st.setString(1,username);
+    st.setString(2,"Administrator");
+    //プロシージャの実行
+    java.sql.ResultSet rs = st.executeQuery();
+    rs.next();
+    //Administratorグループに属しているかを確認
+    int isAdmin=rs.getInt("IS_GROUP");
+    st.close();
+    return isAdmin;
+  }
+
+  //ユーザー名とパスワードが合っているかを確認
+  private int checkLogin() throws Exception {
+    //プロシージャの設定
+    String sql = "EXECUTE PROCEDURE IS_LOGIN(?,?)";
+    //パラメータ付のSQL文のための準備
+    java.sql.PreparedStatement st =
+            conn.prepareStatement(sql);
+    //入力パラメータとしてユーザー名とパスワードを設定
+    st.setString(1,username);
+    st.setString(2,password);
+    //プロシージャの実行
+    java.sql.ResultSet rs = st.executeQuery();
+    //ログインに成功しているかどうかを確認
+    rs.next();
+    int isLogin=rs.getInt("ISLOGIN");
+    //プロシージャの実行を終了
+    st.close();
+    return isLogin;
+  }
+
+}
+

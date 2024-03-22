@@ -1,0 +1,173 @@
+object Form1: TForm1
+  Left = 241
+  Top = 112
+  Width = 293
+  Height = 300
+  HorzScrollBar.Range = 265
+  VertScrollBar.Range = 289
+  ActiveControl = ComboBox1
+  Caption = #12503#12525#12471#12540#12472#12515#12398#12469#12531#12503#12523
+  Color = clBackground
+  PixelsPerInch = 81
+  TextHeight = 16
+  TextWidth = 7
+  object ComboBox1: TComboBox
+    Left = 80
+    Top = 8
+    Width = 140
+    Height = 24
+    ItemHeight = 18
+    Items.Strings = (
+      '100'
+      '110'
+      '120'
+      '600'
+      '620'
+      '670')
+    ItemIndex = 0
+    TabOrder = 0
+    Text = '100'
+  end
+  object execBtn: TButton
+    Left = 128
+    Top = 40
+    Width = 89
+    Height = 25
+    Caption = #23455#34892
+    TabOrder = 1
+    OnClick = execBtnClick
+  end
+  object GroupBox1: TGroupBox
+    Left = 8
+    Top = 80
+    Width = 257
+    Height = 161
+    Caption = #36820#20516
+    TabOrder = 2
+    object TOT_BUDGETEdit: TEdit
+      Left = 128
+      Top = 24
+      Width = 105
+      Height = 24
+      Enabled = False
+      TabOrder = 0
+    end
+    object Label1: TLabel
+      Left = 24
+      Top = 32
+      Width = 89
+      Height = 16
+      Caption = 'TOT_BUDGET'
+    end
+    object Label2: TLabel
+      Left = 24
+      Top = 56
+      Width = 91
+      Height = 16
+      Caption = 'AVG_BUDGET'
+    end
+    object AVG_BUDGETEdit: TEdit
+      Left = 128
+      Top = 56
+      Width = 105
+      Height = 24
+      Enabled = False
+      TabOrder = 3
+    end
+    object Label3: TLabel
+      Left = 24
+      Top = 88
+      Width = 88
+      Height = 16
+      Caption = 'MIN_BUDGET'
+    end
+    object MIN_BUDGETEdit: TEdit
+      Left = 128
+      Top = 88
+      Width = 105
+      Height = 24
+      Enabled = False
+      TabOrder = 5
+    end
+    object Label4: TLabel
+      Left = 24
+      Top = 120
+      Width = 92
+      Height = 16
+      Caption = 'MAX_BUDGET'
+    end
+    object MAX_BUDGETEdit: TEdit
+      Left = 128
+      Top = 120
+      Width = 105
+      Height = 24
+      Enabled = False
+      TabOrder = 7
+    end
+  end
+  object BitBtn1: TBitBtn
+    Left = 88
+    Top = 256
+    Width = 105
+    Height = 33
+    TabOrder = 3
+    Kind = bkClose
+  end
+  object SQLConnection1: TSQLConnection
+    Connected = True
+    ConnectionName = 'IBConnection'
+    DriverName = 'Interbase'
+    GetDriverFunc = 'getSQLDriverINTERBASE'
+    LibraryName = 'libsqlib.so.1'
+    LoginPrompt = False
+    Params.Strings = (
+      'DriverName=Interbase'
+      'Database=/opt/interbase/examples/employee.gdb'
+      'User_Name=sysdba'
+      'Password=masterkey'
+      'SQLDialect=1'
+      'CommitRetain=False'
+      'WaitOnLocks=True'
+      'Interbase TransIsolation=ReadCommited')
+    VendorLib = 'libgds.so.0'
+    Left = 8
+    Top = 8
+  end
+  object SQLStoredProc1: TSQLStoredProc
+    SQLConnection = SQLConnection1
+    MaxBlobSize = -1
+    Params = <
+      item
+        DataType = ftFixedChar
+        Name = 'HEAD_DEPT'
+        ParamType = ptInput
+      end
+      item
+        DataType = ftFloat
+        Name = 'TOT_BUDGET'
+        ParamType = ptOutput
+        Size = 8
+      end
+      item
+        DataType = ftFloat
+        Name = 'AVG_BUDGET'
+        ParamType = ptOutput
+        Size = 8
+      end
+      item
+        DataType = ftFloat
+        Name = 'MIN_BUDGET'
+        ParamType = ptOutput
+        Size = 8
+      end
+      item
+        DataType = ftFloat
+        Name = 'MAX_BUDGET'
+        ParamType = ptOutput
+        Size = 8
+      end>
+    StoredProcName = 'SUB_TOT_BUDGET'
+    Left = 40
+    Top = 8
+  end
+end

@@ -1,0 +1,861 @@
+11-8.スケジューラの開発（その5）
+～施設予約機能の作成～
+
+11-7でスケジューラの登録機能を実装しました。最後に、施設予約を作成します。前回、スケジュールの登録を行いました。基本的に構築方法は同じですが、スケジューラ機能とは異なる画面レイアウトにしたいと思います。施設予約の画面イメージは図11-8-1のようになります。
+
+図11-8-1.施設予約の一覧画面
+（fig11-8-1.bmp)
+
+リスト11-8-1のwriteJavaScriptメソッドによって、スケジュール画面と同様に、予約情報および空きの部分にはすべてJavaScriptが設定されています。このJavaScriptは選択したリンクが施設の新規予約・変更なのか、他の週を表示するのかを判別し、呼び出すサーブレットを動的に変更するようにしています。他の週を表示する場合は現在実行されているreserveClassクラスが再呼び出しされます。このとき、前週または次週のイメージボタンに設定されているJavaScriptのsetAction()メソッドに次週または前週の日曜日の日付が指定されています。この日付が、パラメータとなりその週の施設予約状況が表示されるようになります。施設の予約情報のテーブルから選択された場合は、setAction()メソッドで選択された施設、日付、グループがHTMLドキュメント内のhiddenオブジェクトに設定され、setReserveClassクラスが呼び出されます。このようにJavaScriptを利用すると動的に呼び出し先を変更できるのでとても便利です。
+
+
+
+リスト11-8-1.施設予約の一覧画面で使われているJavaScriptを生成するwriteJavaScriptメソッド
+  void writeJavaScript(PrintWriter out){
+    out.println("<SCRIPT language=\"JAVASCRIPT\">");
+    out.println("function setAction(ntype,sDate,basedHour,room){");
+    out.println("if(ntype==0){document.forms[0].basedDay.value=sDate;}");
+    out.println("else{document.forms[0].basedDay.value=sDate;");
+    out.println("document.forms[0].action=\"./reserve\";");
+    out.println("document.forms[0].method=\"get\";");
+    out.println("document.forms[0].basedHour.value=basedHour;");
+    out.println("document.forms[0].actionType.value=ntype;");
+    out.println("document.forms[0].roomName.value=room;}");
+    out.println("document.forms[0].submit();}");
+    out.println("</SCRIPT>");
+  }
+
+ リスト11-8-2.予約情報を取り出すcheckScheduleメソッド
+  private void checkSchedule(PrintWriter out, String basedSunday, int elmRoom) {
+    int days, hours;
+    String sql;
+    java.sql.Time startTime,endTime;
+    java.sql.Date startDate;
+
+    DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.JAPANESE);
+    java.util.Date dBasedSunday=new java.util.Date(basedSunday);
+    df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.US);
+    basedSunday=df.format(dBasedSunday);
+    String nextSunday=df.format(new java.util.Date(
+           java.util.Date.parse(basedSunday)+7*oneDayMilSec));
+    try {
+       //予約情報を取り出すための準備
+       java.sql.Statement statement = conn.createStatement();
+       sql="SELECT G.GROUP_NAME,RE.START_DATE, RE.END_DATE, RO.ROOM"
+          +" FROM RESERVATION RE, ROOMS RO, GROUP_DATA G "
+          +" WHERE RE.GROUP_NO=G.GROUP_NO AND RE.ROOM_ID=RO.ROOM_ID "
+          +" AND RE.START_DATE>='"+basedSunday+"'"
+          +" AND RE.END_DATE<'"+nextSunday+"'"
+          +" ORDER BY RE.START_DATE";
+       java.sql.ResultSet rs = statement.executeQuery(sql);
+       //予約情報の取り出し
+       while(rs.next()) {
+          int roomNum=0;
+          String roomName=rs.getString("ROOM").trim();
+          for (int i=1;i<elmRoom+1;i++) {
+             if (weeklyFormat[0][i].indexOf(roomName)>=0) {
+                roomNum=i;
+             }
+          }
+          startDate=rs.getDate("START_DATE");
+          startTime=rs.getTime("START_DATE");
+          endTime=rs.getTime("END_DATE");
+          hours=startTime.getHours();
+          days=startDate.getDay();
+          weeklyFormat[days][roomNum]=weeklyFormat[days][roomNum]
+                +"<BR><A HREF=javaScript:setAction(2,\""
+                +weeklyFormat[days][0]+"\","+Integer.toString(hours)
+                +",\""+weeklyFormat[0][roomNum]+"\")>"
+                +rs.getString("GROUP_NAME")+"  "+startTime+" - "+endTime
+                +"</A>";
+       }
+    } catch (Exception e) {
+    }
+  }
+
+リスト11-8-2は施設予約情報のHTMLテーブルに既存の施設予約状況を格納しているcheckScheduleメソッドのソースです。前回のスケジューラの場合は、8x24の配列としてweeklyFormatを使用しましたが、今回の施設予約では8x施設数+1の配列を使用しています。施設数が増えている可能性があるので、このようなレイアウトおよび配列を使用しています。リスト11-8-3のように、部屋数をgetRoomNum()メソッドで取得し、weeklyFormat配列の要素数の決定しています。
+
+
+    リスト11-8-3.予約情報を入れるweeklyFormat配列の生成
+    //部屋数を取得
+    int roomNum=getRoomNum();
+    //予約情報を入れる配列を作成
+    weeklyFormat= new String[8][roomNum+1];
+
+
+施設予約の一覧画面からsetReserveClassクラスが呼び出されるとまず、渡された日付、時間、施設名称、新規か変更かを指定する値などのパラメータを取得し、施設名称から施設番号(ROOM_ID)を取得します。こちらの処理はgetRoomNo()メソッドで行われます。続いて、新規予約の処理の場合は newReserved()メソッド(リスト11-8-4)が呼び出され、変更の場合はeditReserved()メソッドが呼び出されます。
+新規の場合を例にしてこれらのメソッドで行われている処理をみてみましょう。newReserved()メソッドが呼び出されるとまずユーザーの属しているグループの一覧を取得し、リストボックスで表示できるようにHTMLドキュメントを生成します。続いて、開始時間と予約時間のリストボックスが生成され、最後に登録ボタンが生成されます。変更の場合も処理内容はほぼ一緒ですが、現在登録されている施設情報の開始時間、予約時間が選択されるように生成されています。また、変更と削除の２つのボタンが生成されます。
+図11-8-2は新規に施設予約を行う画面です。
+
+図11-8-2.新規施設予約の画面
+(11-8-2.bmp)
+
+リスト11-8-4.新規施設予約を行うnewReservedメソッド
+  private void newReserved(PrintWriter out) {
+    System.out.println("NEW RESERVED<BR>");
+    out.println("<FONT COLOR=\"white\">グループ:</FONT><select name=\"group\">");
+    try {
+         //ログインユーザーの属しているグループを取得
+         java.sql.Statement statement=dbIBSchedule.createStatement();
+         String sql = "SELECT G.GROUP_NAME FROM GROUP_DATA G "
+                +"INNER JOIN GROUP_INFO I ON G.GROUP_NO=I.GROUP_NO AND "
+                +"I.USER_ID = (SELECT U.USER_ID FROM  USERINFO U "
+                +"WHERE U.ACCOUNT='"+username+"')";
+         java.sql.ResultSet rs = statement.executeQuery(sql);
+         int i=0;
+         while(rs.next()){
+            if (i==0) {
+                out.println("<OPTION SELECTED>"+rs.getString("GROUP_NAME"));
+            } else {
+                out.println("<OPTION>"+rs.getString("GROUP_NAME"));
+            }
+            i++;
+         }
+         out.println("</SELECT><BR>");
+         rs.close();
+         out.println("<FONT COLOR=\"white\">開始時間:</FONT><select name=\"hour\">");
+         for (int j=0;j<24;j++){
+            if (j==0) {
+                out.println("<OPTION SELECTED>"+Integer.toString(j));
+            } else {
+                out.println("<OPTION>"+Integer.toString(j));
+            }
+         }
+         out.println("</SELECT>");
+         out.println("<FONT COLOR=\"white\">　時間:</FONT><select name=\"span\">");
+         for (int j=1;j<5;j++){
+            if (j==1) {
+                out.println("<OPTION SELECTED>"+Integer.toString(j));
+            } else {
+                out.println("<OPTION>"+Integer.toString(j));
+            }
+         }
+         out.println("</SELECT><BR>");
+         out.println("<INPUT TYPE=\"submit\" name=\"actionType\" value=\"登録\">");
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+  }
+
+施設予約の新規入力、変更・削除ボタンが実行されると、setReserveClassクラスのdoPostメソッドが呼び出されます。こちらのメソッドではdoGetメソッドから送られてきた施設番号、予約日時、グループ、予約時間のパラメータを取得し、データ処理を行うためのSQL文が生成されます。リスト11-8-5はこれら施設予約情報をデータベースに登録するwriteReservation()メソッドです。SQL文を生成するために必要なグループ番号、ユーザー番号などはそれぞれ別のメソッドで行っています。前回解説したようにInterBaseはmm/dd/yyまたはdd-mm-yyの日付フォーマットを使用しますので、日付をすべてU.S.ロケールで処理しています。SQL文を作成したら、データベースへの登録を実行し、図11-8-3のように登録完了の画面を生成します。
+
+図11-8-3.施設予約の登録完了画面
+(fig11-8-3.bmp)
+
+図11-8-4.施設予約情報が登録されたところ
+(fig11-8-4.bmp)
+
+
+　リスト11-8-5.予約情報をデータベースに登録するwriteReservationメソッド
+  private void writeReservation(PrintWriter out, int actionType, String group,
+                      String hour, String span, String basedDay, String roomNo) {
+     //InterBaseの日付フォーマットはU.S.形式なので
+     DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.US);
+     java.util.Date StartDate=new java.util.Date(basedDay);
+     basedDay=df.format(StartDate);
+     String sStartDate=basedDay+' '+hour+":00:00";
+     //スケジュールの終了時間
+     java.util.Date endDate=new java.util.Date(java.util.Date.parse(sStartDate)
+                  +Integer.parseInt(span)*60*60*1000);
+     String sEndDate=basedDay+' '+endDate.getHours()+":00:00";
+     try {
+           getOwerId(out);
+           getGroupNo(out,group.trim());
+     } catch (Exception e){
+       e.printStackTrace();
+     }
+     //SQL文の設定
+     String s="";
+     switch (actionType){
+        //追加
+        case 0:
+               s="INSERT INTO RESERVATION "
+                 +"(OWNER_ID,START_DATE,END_DATE,GROUP_NO,ROOM_ID, IS_GROUP) "
+                 +"VALUES ("
+                 +Integer.toString(owner_id)+",\""+sStartDate+"\",\""
+                 +sEndDate+"\","+Integer.toString(group_no)+","
+                 +roomNo+",1)";
+               break;
+        //変更
+        case 1:
+               s="UPDATE RESERVATION "
+                +" SET END_DATE=\""+sEndDate
+                +"\",GROUP_NO="+Integer.toString(group_no)
+                +" WHERE OWNER_ID="+Integer.toString(owner_id)
+                +" AND START_DATE=\""+sStartDate+"\""
+                +" AND ROOM_ID="+roomNo+" AND IS_GROUP=1";
+               break;
+        //削除
+        case 2:
+               s="DELETE FROM RESERVATION "
+                +"WHERE OWNER_ID="+Integer.toString(owner_id)
+                +" AND GROUP_NO="+Integer.toString(group_no)
+                +" AND START_DATE=\""+sStartDate+"\""
+                +" AND ROOM_ID="+roomNo+" AND IS_GROUP=1";
+               break;
+     }
+     try {
+          java.sql.Statement statement = conn.createStatement();
+          //SQL文の実行
+          statement.executeUpdate(s);
+     } catch (Exception e){
+         e.printStackTrace();
+     }
+
+  }
+
+これで、スケジューラの作成は終了です。もし、施設予約の拡張を拡張してビジーサーチの機能があると非常に便利ですので、こちらの機能の実装方法について説明しておきましょう。
+reserveClassクラスでビジーサーチボタン、施設名称、グループのリストボックスを用意します。ビジーサーチ用のbusySearch[7][24]を用意します。ビジーサーチでは予約したい施設は決まっていますので７日間x24時間の配列を使用します。続いて、表示されている週のグループのメンバーのスケジュールを取得するSQL文を実行し、busySearch配列にすでにスケジュールがあるところに1を入れます。同様に、施設のスケジュール状況を取得して、busySearch配列に既存の予約状況を入れます。これらの処理により、グループと施設の指定された週のスケジュールが分かります。busySearch配列の0の部分が空いている時間ですので、この日時を表示してやれば、ビジーサーチ機能を実現することができます。reserveClassクラスで生成しているsetAction()メソッドにもう一つパラメータを用意して、ビジーサーチを実行するかどうかを判別することで画面上に空いているスケジュールの一覧を表示することができるでしょう。
+
+
+リスト11-8-6.reserveClassクラス
+/*------------------------------------------------------------
+   Firebird Scheduler
+   ファイル: reserveClass.java
+   内容:施設予約画面の生成
+   copyright(c) 2002 Daiju Kato
+--------------------------------------------------------------*/
+package fbschedule;
+
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.io.*;
+import java.util.*;
+import java.text.*;
+import java.sql.*;
+
+public class reserveClass extends HttpServlet {
+//グローバル変数の初期化
+  String username, password;
+  String[][] weeklyFormat;
+  int oneDayMilSec = 60*60*24*1000;
+  private Connection conn;
+
+  public void init(ServletConfig config) throws ServletException {
+    super.init(config);
+  }
+
+//リクエストのサービス
+  public void service(HttpServletRequest request, HttpServletResponse response)
+  throws ServletException, IOException {
+    String basedDay = "";
+    //パラメータの取得
+    try { basedDay = request.getParameter("basedDay"); }
+    catch (Exception e) { e.printStackTrace(); }
+
+    response.setContentType("text/html;charset=sjis");
+    PrintWriter out = new PrintWriter(
+      new OutputStreamWriter(response.getOutputStream(), "SJIS"));
+    out.println("<html>");
+    out.println("<head><title>Firebird Scheduler</title></head>");
+  	out.println("<body background=\"images/BCG_006.GIF\">");
+  	out.println("<center><img SRC=\"images/TITLE.gif\"></center><BR><HR>");
+    out.println("<center><H1><FONT COLOR=\"00FFFF\">施設予約</FONT></CENTER></H1><BR>");
+    out.print("<form method=\"post\" ");
+    out.print("action=\"");
+    out.print(request.getRequestURI());
+    out.println("\" >");
+    //ログインした情報の取得
+    HttpSession session = request.getSession(true); //Sessionのチェック
+    //書き込まれているユーザーとパスワードの情報を取得
+    username = (String)session.getValue("username");
+    password = (String)session.getValue("password");
+    //dbLogin(out);
+    //データベースに接続
+    try {
+          Database dbFBSchedule = new Database();
+          conn=dbFBSchedule.getConnection();
+          //部屋数を取得
+          int roomNum=getRoomNum();
+          //for debug
+          //out.println("施設数:"+Integer.toString(roomNum)+"<BR>");
+          //end debug
+          //予約情報を入れる配列を作成
+          weeklyFormat= new String[8][roomNum+1];
+          if (basedDay==null) {
+              DateFormat df=DateFormat.getDateInstance(
+                              DateFormat.DEFAULT,Locale.JAPANESE);
+              java.util.Date myDate = new java.util.Date();
+              basedDay= df.format(myDate);
+          }
+          //データベースから切断
+          dbFBSchedule.getConnection();
+          createFrame(out,basedDay,roomNum);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    out.println("</BODY></HTML>");
+    out.close();
+  }
+
+  //部屋数の取得
+  private int getRoomNum() {
+    int roomNum = 0;
+    try {
+         java.sql.Statement statement = conn.createStatement();
+         String sql="SELECT COUNT(ROOM_ID) FROM ROOMS";
+         //部屋数を取得
+         java.sql.ResultSet rs = statement.executeQuery(sql);
+         rs.next();
+         roomNum = rs.getInt("COUNT");
+         rs.close();
+    } catch (Exception e) {
+       e.printStackTrace();
+    }
+    return roomNum;
+  }
+
+  //予約情報表示テーブルの作成
+  private void createFrame(PrintWriter out, String basedDay, int elmRoom){
+    DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.JAPANESE);
+    java.util.Date basedDate = new java.util.Date(basedDay);
+    String basedSunday;
+    //基準となる日曜日の算出
+    if (basedDate.getDay()==0) {
+       basedSunday = df.format(basedDate);
+    } else {
+       basedSunday = df.format(new java.util.Date(java.util.Date.parse(basedDay)
+                       -(basedDate.getDay()*oneDayMilSec)));
+    }
+    createNavigator(out,basedSunday);
+    //施設名の挿入
+    setRoomName();
+    out.println("<CENTER><TABLE BORDER=3><TR><TH BGCOLOR=\"white\">施設／日付</TH>");
+    //日付の挿入
+    for (int i=1;i<=7;i++){
+        for (int j=0;j<=elmRoom;j++) {
+            if (j==0) {
+               weeklyFormat[i][0]=df.format(new java.util.Date(
+                       java.util.Date.parse(basedSunday)+i*oneDayMilSec));
+               switch (i){
+               case 1:out.println("<TH BGCOLOR=\"red\">"+weeklyFormat[i][0]+"</TH>");
+                      break;
+               case 7:out.println("<TH BGCOLOR=\"#00FFFF\">"+weeklyFormat[i][0]+"</TH>");
+                      break;
+               default:out.println("<TH BGCOLOR=\"white\">"+weeklyFormat[i][0]+"</TH>");
+               }
+            } else {
+              weeklyFormat[i][j]="<A HREF=javascript:setAction(1,\""
+                  +weeklyFormat[i][0]+"\",0,\""+weeklyFormat[0][j]+"\")>(予約)</A>";
+            }
+        }
+    }
+    out.println("</TR>");
+    //予約情報の挿入
+    checkSchedule(out,basedSunday,elmRoom);
+    //テーブル形式に書き出す
+    for (int j=1;j<=elmRoom;j++){
+       out.println("<TR>");
+       for (int i=0;i<8;i++) {
+          switch (i){
+             case 0:out.println("<TD ALIGN=\"CENTER\" BGCOLOR=\"white\">"
+                  +weeklyFormat[i][j]+"</TD>");
+                  break;
+             case 1:out.println("<TD ALIGN=\"CENTER\" BGCOLOR=\"red\">"
+                  +weeklyFormat[i][j]+"</TD>");
+                  break;
+             case 7:out.println("<TD ALIGN=\"CENTER\" BGCOLOR=\"#00FFFF\">"
+                  +weeklyFormat[i][j]+"</TD>");
+                  break;
+             default:out.println("<TD ALIGN=\"CENTER\" BGCOLOR=\"white\">"
+                  +weeklyFormat[i][j]+"</TD>");
+          }
+       }
+       out.println("</TR>");
+    }
+    out.println("</TABLE></CENTER>");
+    //JavaScriptの生成
+    writeJavaScript(out);
+    //hiddenオブジェクトの生成(アクション内容の保存)
+    out.println("<INPUT TYPE=\"hidden\" NAME=\"basedDay\" VALUE=\"\">");
+    out.println("<INPUT TYPE=\"hidden\" NAME=\"actionType\" VALUE=0>");
+    out.println("<INPUT TYPE=\"hidden\" NAME=\"basedHour\" VALUE=0>");
+    out.println("<INPUT TYPE=\"hidden\" NAME=\"roomName\" VALUE=0>");
+    out.println("<BR><HR>");
+    //フッターの生成
+    writeFooter(out);
+    return;
+  }
+
+  //ナビゲータボタンの作成
+  private void createNavigator(PrintWriter out, String basedSunday) {
+     String nextSunday, previousSunday;
+     DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.JAPANESE);
+     nextSunday=df.format(new java.util.Date(
+                          java.util.Date.parse(basedSunday)+7*oneDayMilSec));
+     previousSunday =df.format(new java.util.Date(
+                          java.util.Date.parse(basedSunday)-7*oneDayMilSec));
+     //前週に
+     out.println("<CENTER>");
+     out.println("<A HREF=javascript:setAction(0,\""
+                 +previousSunday+"\",0,0)>"
+                 +"<IMG SRC=\"images/MAR_137.gif\"></A>　　　");
+     //翌週に
+     out.println("<A HREF=javascript:setAction(0,\""
+                 +nextSunday+"\",0,0)>"
+                 +"<IMG SRC=\"images/MAR_141.gif\"></A><BR></CENTER>");
+  }
+
+  //施設名の挿入
+  private void setRoomName(){
+   try {
+         java.sql.Statement statement = conn.createStatement();
+         String sql="SELECT ROOM FROM ROOMS";
+         //部屋数を取得
+         java.sql.ResultSet rs = statement.executeQuery(sql);
+         int i=1;
+         while(rs.next()) {
+           weeklyFormat[0][i]=rs.getString("ROOM");
+           i++;
+         }
+         rs.close();
+   } catch (Exception e) {
+       e.printStackTrace();
+   }
+  }
+
+  //予約情報の挿入
+  private void checkSchedule(PrintWriter out, String basedSunday, int elmRoom) {
+    int days, hours;
+    String sql;
+    java.sql.Time startTime,endTime;
+    java.sql.Date startDate;
+
+    DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.JAPANESE);
+    java.util.Date dBasedSunday=new java.util.Date(basedSunday);
+    df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.US);
+    basedSunday=df.format(dBasedSunday);
+    String nextSunday=df.format(new java.util.Date(
+              java.util.Date.parse(basedSunday)+7*oneDayMilSec));
+    try {
+       //予約情報を取り出すための準備
+       java.sql.Statement statement = conn.createStatement();
+       sql="SELECT G.GROUP_NAME,RE.START_DATE, RE.END_DATE, RO.ROOM"
+          +" FROM RESERVATION RE, ROOMS RO, GROUP_DATA G "
+          +" WHERE RE.GROUP_NO=G.GROUP_NO AND RE.ROOM_ID=RO.ROOM_ID "
+          +" AND RE.START_DATE>='"+basedSunday+"'"
+          +" AND RE.END_DATE<'"+nextSunday+"'"
+          +" ORDER BY RE.START_DATE";
+       java.sql.ResultSet rs = statement.executeQuery(sql);
+       //予約情報の取り出し
+       while(rs.next()) {
+          int roomNum=0;
+          String roomName=rs.getString("ROOM").trim();
+          for (int i=1;i<elmRoom+1;i++) {
+             if (weeklyFormat[0][i].indexOf(roomName)>=0) {
+                roomNum=i;
+             }
+          }
+          startDate=rs.getDate("START_DATE");
+          startTime=rs.getTime("START_DATE");
+          endTime=rs.getTime("END_DATE");
+          hours=startTime.getHours();
+          days=startDate.getDay();
+          weeklyFormat[days][roomNum]=weeklyFormat[days][roomNum]
+                +"<BR><A HREF=javaScript:setAction(2,\""
+                +weeklyFormat[days][0]+"\","+Integer.toString(hours)
+                +",\""+weeklyFormat[0][roomNum]+"\")>"
+                +rs.getString("GROUP_NAME")+"  "+startTime+" - "+endTime
+                +"</A>";
+       }
+    } catch (Exception e) {
+    }
+  }
+
+  //JavaScriptの生成
+  void writeJavaScript(PrintWriter out){
+    out.println("<SCRIPT language=\"JAVASCRIPT\">");
+    out.println("function setAction(ntype,sDate,basedHour,room){");
+    out.println("if(ntype==0){document.forms[0].basedDay.value=sDate;}");
+    out.println("else{document.forms[0].basedDay.value=sDate;");
+    out.println("document.forms[0].action=\"./setreserve\";");
+    out.println("document.forms[0].method=\"get\";");
+    out.println("document.forms[0].basedHour.value=basedHour;");
+    out.println("document.forms[0].actionType.value=ntype;");
+    out.println("document.forms[0].roomName.value=room;}");
+    out.println("document.forms[0].submit();}");
+    out.println("</SCRIPT>");
+  }
+
+  //フッターの作成
+  private void writeFooter(PrintWriter out) {
+   	out.println("<div align=right>");
+    out.println("<A HREF=\"./loginform\">"
+               +"<IMG SRC=\"images/B03E13.GIF\"></A><HR>");
+    out.println("<p><i><font color=\"#99FF99\">"
+              +"copyright(c) 2002 Daiju Kato</font></i></div>");
+  }
+}
+
+
+リスト11-8-7.setReserveClassクラス
+/*------------------------------------------------------------
+   Firebird Scheduler
+   ファイル: setReserveClass.java
+   内容:施設予約画面の生成
+   copyright(c) 2002 Daiju Kato
+--------------------------------------------------------------*/
+package fbschedule;
+
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.io.*;
+import java.util.*;
+import java.text.*;
+import java.sql.*;
+
+public class setReserveClass extends HttpServlet {
+//グローバル変数の初期化
+  String username,password;
+  int owner_id, group_no;
+  private Connection conn;
+
+  public void init(ServletConfig config) throws ServletException {
+    super.init(config);
+  }
+//HTTP Get リクエストの処理
+
+  public void doGet(HttpServletRequest request, HttpServletResponse response)
+    throws ServletException, IOException {
+    response.setContentType("text/html;charset=sjis");
+    PrintWriter out = new PrintWriter(
+      new OutputStreamWriter(response.getOutputStream(), "SJIS"));
+
+    //予約する日
+    String basedDay = "";
+    try { basedDay = request.getParameter("basedDay");
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    //予約済みの時間（編集用）
+    String reservedHour = "";
+    try { reservedHour = request.getParameter("basedHour");
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    out.println("<html>");
+    out.println("<head><title>Firebird Scheduler</title></head>");
+    out.println("<body background=\"images/BCG_006.GIF\">");
+    out.println("<center><img SRC=\"images/TITLE.gif\"></center><BR><HR>");
+    out.print("<form method=\"post\" ");
+    out.print("action=\"");
+    out.print(request.getRequestURI());
+    out.println("\" >");
+    //ログインした情報の取得
+    HttpSession session = request.getSession(true); //Sessionのチェック
+    username = (String)session.getValue("username");
+   try {
+           //データベースへの接続
+           Database dbFBSchedule = new Database();
+           conn = dbFBSchedule.getConnection();
+           //施設番号の取得
+           Hashtable parameters = getParameters(request);
+           String roomName = (String)parameters.get("roomName");
+           String roomNo="";
+           try {
+                roomNo = getRoomNo(roomName);
+           } catch (Exception roomEx) {
+              roomEx.printStackTrace();
+           }
+           //新規か変更かの判断用
+           String actionType = "";
+           try { actionType = request.getParameter("actionType");
+           } catch (Exception ex) {
+                ex.printStackTrace();
+           }
+           //施設予約の新規か編集か
+           if (Integer.parseInt(actionType)==1) {
+               //新規の場合
+               newReserved(out);
+           }else {
+              //既存の場合
+              editReserved(out,reservedHour,basedDay);
+           }
+           //hidden オブジェクトの生成
+            out.println("<INPUT TYPE=\"hidden\" name=\"day\" value=\""
+                +basedDay+"\">");
+            out.println("<INPUT TYPE=\"hidden\" name=\"room\" value=\""
+                 +roomNo+"\">");
+           //データベースから切断
+           dbFBSchedule.releaseConnection();
+     } catch (Exception dbExp) {
+       dbExp.printStackTrace();
+     }
+    //フッターの生成
+    writeFooter(out);
+    out.println("</body></html>");
+    out.close();
+  }
+
+//HTTP Post リクエストの処理
+  public void doPost(HttpServletRequest request, HttpServletResponse response)
+    throws ServletException, IOException {
+
+    response.setContentType("text/html;charset=sjis");
+    PrintWriter out = new PrintWriter(
+      new OutputStreamWriter(response.getOutputStream(), "SJIS"));
+    out.println("<html>");
+    out.println("<head><title>Firebird Scheduler</title></head>");
+  	out.println("<body background=\"images/BCG_006.GIF\">");
+    out.print("<form method=post ");
+    out.print("action=./reserve");
+    out.println(">");
+  	out.println("<center><img SRC=\"images/TITLE.gif\"></center><BR><HR>");
+    out.println("<CENTER><H1><FONT COLOR=\"00FFFF\">"
+        +"施設予約の完了</H1></CENTER></FONT><BR><HR>");
+
+    Hashtable parameters = getParameters(request);
+    String reservedDay = (String)parameters.get("day");
+    String hour = (String)parameters.get("hour");
+    String span = (String)parameters.get("span");
+    String group= (String)parameters.get("group");
+    String actionType = (String)parameters.get("actionType");
+    String roomNo = (String)parameters.get("room");
+
+    //アクションの確認
+    int aType=0;
+    if (actionType.indexOf("登録")>=0){
+        aType=0;
+    } else if (actionType.indexOf("変更")>=0) {
+          aType=1;
+    } else { aType=2; }
+    try {
+         //データベースに接続
+         Database dbFBSchedule = new Database();
+         conn=dbFBSchedule.getConnection();
+         //予約の実施
+         writeReservation(out,aType, group, hour, span, reservedDay, roomNo);
+        //hidden オブジェクトの生成
+        out.println("<INPUT TYPE=\"submit\" value=\"施設予約へ戻る\">");
+        out.println("<INPUT TYPE=\"hidden\" name=\"day\" value=\""
+              +reservedDay+"\">");
+        //データベースから切断
+        dbFBSchedule.releaseConnection();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    writeFooter(out);
+    out.println("</body></html>");
+    out.close();
+  }
+
+  //新規施設予約の場合
+  private void newReserved(PrintWriter out) {
+    System.out.println("NEW RESERVED<BR>");
+    out.println("<FONT COLOR=\"white\">グループ:</FONT><select name=\"group\">");
+    try {
+         //ログインユーザーの属しているグループを取得
+         java.sql.Statement statement=conn.createStatement();
+         String sql = "SELECT G.GROUP_NAME FROM GROUP_DATA G "
+                +"INNER JOIN GROUP_INFO I ON G.GROUP_NO=I.GROUP_NO AND "
+                +"I.USER_ID = (SELECT U.USER_ID FROM  USERINFO U "
+                +"WHERE U.ACCOUNT='"+username+"')";
+         java.sql.ResultSet rs = statement.executeQuery(sql);
+         int i=0;
+         while(rs.next()){
+            if (i==0) {
+                out.println("<OPTION SELECTED>"+rs.getString("GROUP_NAME"));
+            } else {
+                out.println("<OPTION>"+rs.getString("GROUP_NAME"));
+            }
+            i++;
+         }
+         out.println("</SELECT><BR>");
+         rs.close();
+         out.println("<FONT COLOR=\"white\">開始時間:</FONT><select name=\"hour\">");
+         for (int j=0;j<24;j++){
+            if (j==0) {
+                out.println("<OPTION SELECTED>"+Integer.toString(j));
+            } else {
+                out.println("<OPTION>"+Integer.toString(j));
+            }
+         }
+         out.println("</SELECT>");
+         out.println("<FONT COLOR=\"white\">　時間:</FONT><select name=\"span\">");
+         for (int j=1;j<5;j++){
+            if (j==1) {
+                out.println("<OPTION SELECTED>"+Integer.toString(j));
+            } else {
+                out.println("<OPTION>"+Integer.toString(j));
+            }
+         }
+         out.println("</SELECT><BR>");
+         out.println("<INPUT TYPE=\"submit\" name=\"actionType\" value=\"登録\">");
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+  }
+
+  //予約変更の場合
+  private void editReserved(PrintWriter out, String reservedHour, String basedDay) {
+    java.util.Date checkDate = new java.util.Date( java.util.Date.parse(basedDay));
+    //InterBaseの日付フォーマットはU.S.形式なので
+    DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.US);
+    String startdate=df.format(checkDate)+" "+reservedHour+":00:00";
+    System.out.println("EDIT");
+    System.out.println("start_date:"+startdate);
+    try {
+        //現在の予約状況の取得
+        String start_date=basedDay+"/ "+reservedHour+":00:00";
+        java.sql.Statement statement = conn.createStatement();
+        String sql = "SELECT D.GROUP_NAME, R.START_DATE, R.END_DATE "
+                    +"FROM RESERVATION R INNER JOIN GROUP_DATA D "
+                    +"ON R.GROUP_NO=D.GROUP_NO "
+                    +"AND R.START_DATE ='"+startdate+"'";
+        java.sql.ResultSet rs = statement.executeQuery(sql);
+        rs.next();
+        String reservedGroup = rs.getString("GROUP_NAME").trim();
+        rs.close();
+        out.println("<FONT COLOR=\"white\">グループ:</FONT><select name=\"group\">");
+        out.println("<OPTION SELECTED>"+reservedGroup);
+        out.println("</SELECT><BR>");
+         //開始時間
+         out.println("<FONT COLOR=\"white\">開始時間:</FONT><select name=\"hour\">");
+         for (int i=0;i<24;i++){
+            if (i==Integer.parseInt(reservedHour)){
+                out.println("<OPTION SELECTED>"+Integer.toString(i));
+            } else {
+                out.println("<OPTION>"+Integer.toString(i));
+            }
+         }
+         out.println("</SELECT>");
+         out.println("<FONT COLOR=\"white\">　時間:</FONT><select name=\"span\">");
+         for (int i=1;i<5;i++){
+            if (i==1) {
+                out.println("<OPTION SELECTED>"+Integer.toString(i));
+            } else {
+                out.println("<OPTION>"+Integer.toString(i));
+            }
+         }
+         out.println("</SELECT><BR>");
+         out.println("<INPUT TYPE=\"submit\" name=\"actionType\" value=\"削除\">");
+         out.println("　　");
+         out.println("<INPUT TYPE=\"submit\" name=\"actionType\" value=\"変更\">");
+
+    } catch (Exception e) {
+    }
+  }
+
+  private Hashtable getParameters(HttpServletRequest request)
+    throws IOException {
+
+    Hashtable data = new Hashtable();
+    Enumeration e = request.getParameterNames();
+    while (e.hasMoreElements()) {
+      String key = (String)e.nextElement();
+      String[] values = request.getParameterValues(key);
+      for (int i=0; i<values.length;i++) {
+          data.put(key, new String(
+              values[i].getBytes("8859_1"),"SJIS"));
+      }
+    }
+    return data;
+  }
+
+  private void writeReservation(PrintWriter out, int actionType, String group,
+                      String hour, String span, String basedDay, String roomNo) {
+     //InterBaseの日付フォーマットはU.S.形式なので
+     DateFormat df=DateFormat.getDateInstance(DateFormat.DEFAULT,Locale.US);
+     java.util.Date StartDate=new java.util.Date(basedDay);
+     basedDay=df.format(StartDate);
+     String sStartDate=basedDay+' '+hour+":00:00";
+     //スケジュールの終了時間
+     java.util.Date endDate=new java.util.Date(java.util.Date.parse(sStartDate)
+                  +Integer.parseInt(span)*60*60*1000);
+     String sEndDate=basedDay+' '+endDate.getHours()+":00:00";
+     try {
+           getOwerId(out);
+           getGroupNo(out,group.trim());
+     } catch (Exception e){
+       e.printStackTrace();
+     }
+     //SQL文の設定
+     String s="";
+     switch (actionType){
+        //追加
+        case 0:
+               s="INSERT INTO RESERVATION "
+                 +"(OWNER_ID,START_DATE,END_DATE,GROUP_NO,ROOM_ID, IS_GROUP) "
+                 +"VALUES ("
+                 +Integer.toString(owner_id)+",\""+sStartDate+"\",\""
+                 +sEndDate+"\","+Integer.toString(group_no)+","
+                 +roomNo+",1)";
+               break;
+        //変更
+        case 1:
+               s="UPDATE RESERVATION "
+                +" SET END_DATE=\""+sEndDate
+                +"\",GROUP_NO="+Integer.toString(group_no)
+                +" WHERE OWNER_ID="+Integer.toString(owner_id)
+                +" AND START_DATE=\""+sStartDate+"\""
+                +" AND ROOM_ID="+roomNo+" AND IS_GROUP=1";
+               break;
+        //削除
+        case 2:
+               s="DELETE FROM RESERVATION "
+                +"WHERE OWNER_ID="+Integer.toString(owner_id)
+                +" AND GROUP_NO="+Integer.toString(group_no)
+                +" AND START_DATE=\""+sStartDate+"\""
+                +" AND ROOM_ID="+roomNo+" AND IS_GROUP=1";
+               break;
+     }
+     try {
+          System.out.println("sql:"+s);
+          java.sql.Statement statement = conn.createStatement();
+          //SQL文の実行
+          statement.executeUpdate(s);
+     } catch (Exception e){
+         e.printStackTrace();
+     }
+
+  }
+
+  //USER IDの取得
+  private void getOwerId(PrintWriter out)
+   throws Exception{
+
+        String s="SELECT USER_ID FROM USERINFO WHERE ACCOUNT=\""+username+"\"";
+        java.sql.Statement statement = conn.createStatement();
+        java.sql.ResultSet rs = statement.executeQuery(s);
+        rs.next();
+        owner_id=rs.getInt("USER_ID");
+        rs.close();
+        return;
+  }
+
+  //ROOM IDの取得
+  private String getRoomNo(String roomName)
+   throws Exception{
+
+        String s="SELECT ROOM_ID FROM ROOMS WHERE ROOM=\""+roomName+"\"";
+        java.sql.Statement statement = conn.createStatement();
+        java.sql.ResultSet rs = statement.executeQuery(s);
+        rs.next();
+        int room_no=rs.getInt("ROOM_ID");
+        rs.close();
+        return Integer.toString(room_no);
+  }
+  //GROUP NOの取得
+  private void getGroupNo(PrintWriter out,String group)
+   throws Exception{
+
+        String s="SELECT GROUP_NO FROM GROUP_DATA WHERE GROUP_NAME=\""+group+"\"";
+        java.sql.Statement statement = conn.createStatement();
+        java.sql.ResultSet rs = statement.executeQuery(s);
+        rs.next();
+        group_no=rs.getInt("GROUP_NO");
+        rs.close();
+        return;
+  }
+
+  //フッターの作成
+  private void writeFooter(PrintWriter out) {
+   	out.println("<div align=right>");
+    out.println("<A HREF=\"./loginform\">"
+               +"<IMG SRC=\"images/B03E13.GIF\"></A><HR>");
+    out.println("<p><i><font color=\"#99FF99\">"
+               +"copyright(c) 2002 Daiju Kato</font></i></div>");
+  }
+
+}
+

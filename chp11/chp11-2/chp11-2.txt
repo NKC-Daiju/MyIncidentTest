@@ -1,0 +1,181 @@
+11-2.Tomcatのインストール
+
+作成するWebアプリケーションを動作させるサーブレットエンジンであるJakarta Tomcat(以下、Tomcatと表記）をインストールしてみましょう。TomcatはJakartaプロジェクトのサイトからダウンロードすることができます。また、本紙付属のCD-ROMにもWindows版が納められています。
+
+・Tomcat 4.05のダウンロードサイト
+http://jakarta.apache.org/builds/jakarta-tomcat-4.0/release/v4.0.5/
+
+
+Tomcat 4.05のインストールは、jakarta-tomcat-4.05.exeのインストールプログラム(図11-2-1)に従いインストールを行います。ただし、インストーラがJDKが入っているかどうかを調べますので、事前にJDKをインストールしておく必要があります。デフォルトではc:\Program Files\Apache Tomcat 4.0というディレクトリにインストールを行いますが、筆者は他のバージョンのTomcatと区別するため、C:\Tomcatという名前でインストールしています。また、インストーラにてWindows 2000のサービスに登録することができますが、ここではサービス化の設定を行う予定がないので、チェックを外しています。
+
+図11-2-1. Tomcat 4.05のインストーラ
+(fig11-2-1.bmp)
+
+インストールが終了したら、Apache Tomcat 4.0のグループから[Start Tomcat]を起動し、ブラウザで"http://localhost:8080/examples/jsp/index.html"を起動し、Tomcatのサンプルプログラムが起動できるか確認してください。
+
+図11-2-2.Tomcat 4.05のサンプル画面
+(fig11-2-2.bmp)
+
+Linux版のTomcat 4.0.5のインストールは単純にtar.gz形式のファイルを解凍するだけです。
+
+/usr/local/にファイルを解凍
+#tar zxvf jakarta-tomcat-4.0.5.tar.gz -C /usr/local
+Tomcatの起動
+#/usr/local/jakarta-tomcat-4.0.5/bin/startup.sh
+Tomcatの終了
+#/usr/local/jakarta-tomcat-4.0.5/bin/shutdown.sh
+
+
+Tomcat 4.05は自身でHTTPサーバー機能を持っており、server.xml(confディレクトリ）の設定を変更することで8080ポートではなく80ポートで運用することができます。今回のアプリケーションではTomcatだけで構築しますが、Apacheと連携することもできますので、Apacheとの連携方法について参考までに説明しておきましょう。
+
+Apache 1.3.26のWindows環境へのインストールは単純に、apache_1.3.26-win32-x86-no_src.exeのインストールプログラム(fig11-2-3)を起動して、インストーラの指示に従うだけです。デフォルトではC:\Program Files\Apache Group\Apache以下にインストールされますが、パスが長いのは使いにくいので、筆者は"C:\Apache"というようにルートディレクトリ以下にインストールするようにしています。また、インストール時にサービスで動かすか、アプリケーションで動かすかの指定があります。開発時はアプリケーションの方が扱いやすいので、アプリケーションで起動できるようにしておくといいでしょう。
+インストールが終了したら、起動を行い"http://localhost"でApacheのトップページが閲覧できることを確認してください。ページが表示できればインストールは完了です。
+
+図11-2-3.Apache 1.3.26のインストーラ
+(fig11-2-3.bmp)
+
+Apache 1.3.26とTomcat 4.0.4の連携ですが、mod_webapp.soというモジュールを使います。ただし、このmod_webapp.soのサポートプラットフォームからWindowsが外されてしまいました。Windows環境でのApacheとTomcat 4.0xとの連携は代わりにjk2というコネクターを利用して行うことができます。ただし、このjk2はまだ正式版がリリースされていない状況です。
+どうしてもApache 1.3.26とTomcat 4.0.4を連携したい場合は、Apacheのプロキシ機能を利用するといいでしょう。
+
+(1) Tomcat 4.05のserver.xmlの以下の部分のコメントを外します。
+    <Connector className="org.apache.catalina.connector.http.HttpConnector"
+               port="8082" minProcessors="5" maxProcessors="75"
+               enableLookups="true"
+               acceptCount="10" debug="0" connectionTimeout="60000"
+               proxyPort="80"/>
+
+(2)  Apacheのhttpd.confの末尾に以下を追加します。
+    # Tomcat 4.0.5 連携用の設定
+    LoadModule proxy_module modules/mod_proxy.so
+    AddModule mod_proxy.c
+    ProxyPass         /examples  http://localhost:8081/examples
+    ProxyPassReverse  /examples  http://localhost:8081/examples
+    ProxyPass         /strutsAppDemo      http://localhost:8081/strutsAppDemo
+    ProxyPassReverse  /strutsAppDemo      http://localhost:8081/strutsAppDemo
+
+上記の設定を行った後、Apache,Tomcatを起動して、Tomcatのexamples(http://localhost/examples/jsp/index.html)を起動して動作を確認してみるといいでしょう。
+
+jakarta-tomcat-connectors jk2のダウンロード
+http://jakarta.apache.org/builds/jakarta-tomcat-connectors/jk2/nightly/win32/
+
+Linux環境にてApache 1.3.26とTomcat 4.0.5の連携を行うにはWindows環境での連携で説明したProxyを使う方法以外に、mod_webappモジュールを使う方法があります。
+まず、必要となるApache 1.3.26およびTomcat 4.04の導入を行います。ApacheはApache Software FoundationのHTTP Server プロジェクトのサイトから1.3.26のソースコード(apache_1.3.26.tar.gz)をダウンロードし、コンパイルを行います。コンパイルの手順は次のようになります。ここでは、/usr/local/apache以下に導入するものとし、webappモジュールの追加ができるように、DSO形式でコンパイルしています。
+
+Apache 1.3.26の入手
+http://www.apache.org/dist/httpd/
+
+	ファイルの解凍
+	# tar zxvf apache_1.3.26.tar.gz
+	# cd apache_1.3.26
+	メイクファイルの生成(DSO形式を指定、/usr/local/apacheに導入）
+	# ./configure --prefix=/usr/local/apache --enable-rule=SHARED_CORE 
+	Configuring for Apache, Version 1.3.26
+	 + using installation path layout: Apache (config.layout)
+	・・・・・略・・・・・・
+	メイクの実行
+	# make all
+	===> src
+	make[1]: 入ります ディレクトリ `/home/dkato/apache_1.3.26'
+	make[2]: 入ります ディレクトリ `/home/dkato/apache_1.3.26/src'
+	・・・・・略・・・・・・
+	インストールの実行
+	# make install
+	make[1]: 入ります ディレクトリ `/tmp/apache_1.3.26'
+	===> [mktree: Creating Apache installation tree]
+	・・・・・略・・・・・・
+	Apacheの実行
+	# /usr/local/apache/bin/apachectl start
+	/usr/local/apache/bin/apachectl start: httpd started
+
+続いてTomcat 4.0.5の導入を行います。Jakrta Tomcat 4.0のダウンロードサイトより、Tomcat 4.0.5のファイルを(jakarta-tomcat-4.0.5.tar.gz)ダウンロードします。
+
+Jakarta Tomcat 4.0.5のダウンロードサイト
+http://jakarta.apache.org/builds/jakarta-tomcat-4.0/release/v4.0.5/src/
+
+Tomcat 4.0.5を/usr/local以下に導入します。これで、/usr/local/jakarta-tomcat-4.0.5以下に導入された後、Tomcat 4.0.5が正しく動作するかどうか確認してください。
+	
+	インストール
+	# tar zxvf jakarta-tomcat-4.0.5.tar.gz -C /usr/local
+	# export JAVA_HOME=/usr/java/j2sdk1.4.0_01
+	# /usr/local/jakarta-tomcat-4.05/bin/startup.sh
+
+続いて、webappモジュールのソースコードをCVSからダウンロードします。また、Apacheの一部のソースも必要となりますので、下の手順にようにダウンロードします。ダウンロード後、シェルスクリプトに実行権限を追加し、buildconf.shを実行します。筆者の使用しているRed Hat 7.3ではautoconfのバージョンが古く、buildconfがエラーを返しました。そのため、GNUのサイトからautoconf 2.53のソースコード(autoconf-2.53.tar.gz)をダウンロードし、導入を行いました。導入が必要な方は、autoconf 2.53の導入方法の手順を参照して行ってください。
+buildconf.shにてビルド環境の設定を行ったら、続いてconfigureコマンドでメイクファイルを生成します。このとき、Apacheのapxsコマンド場所を指定してやる必要があります。これでメイクを実行すればwebappモジュールの構築が完了です。構築されたモジュールをApacheのlibexecディレクトリにコピーした後、httpd.confファイルにwebappモジュールの設定を追加します。これで、Apache 1.3.26とTomcat 4.0.5の連携は完了です。
+連携を行ったら、Tomcat 4.0.5のHTTPサーバー機能は必要ありませんので、server.xmlの次の行をコメントアウトしておきます。
+Apacheと連携することで、Tomcat単独よりもセキュリティ面が強化されることなく、静的なファイルを使用する場合のパフォーマンスが増大します。
+
+    <!-- Define a non-SSL HTTP/1.1 Connector on port 8080 -->
+    <!-- Apacheと連携するため必要なし	
+    <Connector className="org.apache.catalina.connector.http.HttpConnector"
+               port="8080" minProcessors="5" maxProcessors="75"
+               enableLookups="true" redirectPort="8443"
+               acceptCount="10" debug="0" connectionTimeout="60000"/>
+    -->
+
+
+	# cd /temp
+	CVSにログイン
+	# cvs -d :pserver:anoncvs@cvs.apache.org:/home/cvspublic login
+	# password: anoncvs
+	CVSによりConnectorsのソースコードを入手
+	# cvs -d :pserver:anoncvs@cvs.apache.org:/home/cvspublic checkout jakarta-tomcat-connectors/webapp
+	cvs server: Updating jakarta-tomcat-connectors/webapp
+	U jakarta-tomcat-connectors/webapp/.cvsignore
+	U jakarta-tomcat-connectors/webapp/CHANGES
+	・・・・・略・・・・・・
+	ダウンロードしたソースコードのディレクトリに移動
+	# cd ./jakarta-tomcat-connectors/webapp
+	関連するApacheのソースコードのダウンロード
+	# cvs -d :pserver:anoncvs@cvs.apache.org:/home/cvspublic checkout apr
+	 .org:/home/cvspublic checkout apr
+	cvs server: Updating apr
+	U apr/.cvsignore
+	・・・・・略・・・・・・
+	実行できるように権限を付加
+	# chmod 775 support/*.sh
+	ビルド環境を生成
+	# ./support/buildconf.sh
+	--- Checking "autoconf" version
+	autoconf version 2.53 detected.
+	・・・・・略・・・・・・
+	メイクファイルの生成
+	#  ./configure --with-apxs=/usr/local/apache/bin/apxs
+	Configuring WebApp Module 
+	+ checking build system type... i586-pc-linux-gnu
+	+ checking host system type... i586-pc-linux-gnu
+	+ checking for sources directory path... /temp/jakarta-tomcat-connect
+	・・・・・略・・・・・・
+	メイクの実行
+	# make
+	make[1]: 入ります ディレクトリ `/temp/jakarta-tomcat-connectors/webapp'
+	・・・・・略・・・・・・
+	コンパイルされたmod_webapp.soをApacheのモジュールのディレクトリにコピー
+	# cp apache-1.3/mod_webapp.so /usr/local/apache/libexec/.
+	httpd.confに次の5行を追加
+	# vi /usr/local/apache/conf/httpd.conf
+	
+	LoadModule webapp_module libexec/mod_webapp.so
+	AddModule mod_webapp.c
+	WebAppConnection conn      warp  localhost:8008
+	WebAppDeploy     examples  conn  /examples
+	WebAppDeploy     strutsAppDemo  conn  /strutsAppDemo
+
+	Tomcat 4.0.5の起動
+	# /usr/local/jakarta-tomcat-4.0.5/bin/startup.sh
+	Apacheの起動
+	# /usr/local/apache/bin/apachectl start
+
+	(autoconf 2.53の導入方法)
+	autoconf 2.53のソースコードを解凍
+	# tar zxvf autoconf-2.53.tar.gz -C /tmp
+	# cd /tmp/autoconf-2.53
+	メイクファイルの生成
+	# ./configure
+	メイクの実行
+	# make all
+	autoconf 2.53のインストール
+	# make install
+
+autoconf 2.53のダウンロードサイト
+	ftp://ftp.gnu.org/gnu/autoconf
+

@@ -1,0 +1,549 @@
+11-3.スケジューラの設計
+
+Tomcatのインストールも完了しましたのでスケジューラの作成に話を移しましょう。今回、作成するスケジューラは次のような機能を持っています。
+
+	・個人のスケジュール登録
+	・施設予約（個人、グループ）
+	・管理メニュー（ユーザー登録）
+
+用意するテーブルは表11-3-1のようになります。
+
+表11-3-1.スケジューラで使用するテーブル
+（table.xls内の表11-3-1）
+
+今回は、施設登録や休日登録などの処理は作成しませんが、テーブルは将来の拡張を含めて設計しておきたいと思います。作成するテーブルのフィールド情報は表11-3-2のようになります。
+
+表11-3-2.フィールド情報
+（table.xls内の表11-3-2）
+
+自動連番で対応するフィールドはトリガーで自動的に値をセットするようにします。また、ユーザーが追加されたときに、自動的にEVERYONEグループに追加する処理や、施設予約をグループで行ったときに該当するグループに所属する全ユーザーのスケジュールに施設予約情報を追加する処理などもトリガーを利用します。今回作成するトリガーの一覧は表11-3-3のようになります。トリガーを効果的に活用するとクライアント側の処理、つまりJavaプログラムを軽くすることができます。サーバーサイドで処理できる内容はすべてサーバー側で行うように心がけてください。
+
+表11-3-3.トリガー情報
+（table.xls内の表11-3-2）
+
+また、ログイン時のユーザー名とパスワードが一致しているかなどの処理はストアドプロシージャを利用します。すでに説明したようにFirebirdには選択プロシージャと実行プロシージャの２種類のストアドプロシージャが用意されています。単一の値を返すときは実行プロシージャで、複数行の値を返す処理は選択プロシージャを利用してください。作成するストアドプロシージャの一覧は表11-3-4のようになります。
+
+表11-3-4.ストアドプロシージャ情報
+（table.xls内の表11-3-3）
+
+今回、作成するアプリケーションでは日本語を格納しますのでデフォルトキャラクターセットをSJISに設定します。また、InterBase Version 5以下との互換性を保つために、SQL DIALECTを1にしています。
+
+リスト11-3-1は今回のアプリケーションで使用するスキーマを作成するSQLファイルです。コマンドラインでISQLを利用することでスキーマを作成することができます。ISQLを使用するときはISC_USERとISC_PASSWORDという環境変数を使用するといちいちユーザー名とパスワードを設定する必要がありません。
+本紙付属のCD-ROMに作成したデータベースおよびダミーデータ(DATA.SQL)が納められています。
+
+スキーマの作成方法
+	環境変数の設定
+	C:\>SET ISC_USER=SYSDBA
+	C:\>SET ISC_PASSWORD=masterkey
+	SQLスクリプトの実行（スキーマの作成）
+	C:\>\Program Files\Firebird\bin\ISQL -I c:\data\FB_SCHEDULE.SQL
+
+リスト11-3-1.FB_SCHEDULE.SQL
+/***********************************************************************/
+/*      Firebird デモアプリケーション                                 */
+/*      スケジューラの構築                                             */
+/*      スキーマ設定ファイル                                           */
+/*      ファイル名:FB_Schedule.sql                                     */
+/*      作成者    :加藤　大受                                          */
+/*      日  付    ：2002/08/23                                           */
+/***********************************************************************/
+
+SET SQL DIALECT 1;
+/******************************************/
+/*         データベースの作成             */
+/******************************************/
+CREATE DATABASE 'c:\data\FB_Schedule.gdb' 
+  PAGE_SIZE 8192 DEFAULT CHARACTER SET SJIS_0208 ;
+
+
+/******************************************/
+/*             テーブルの作成             */
+/******************************************/
+SET NAMES SJIS;
+CONNECT 'localhost:c:\data\FB_Schedule.gdb';
+
+/*********** ユーザー情報 **********************/
+CREATE TABLE USERINFO(
+     USER_ID     SMALLINT  NOT NULL PRIMARY KEY,
+     ACCOUNT     CHAR(10) NOT NULL UNIQUE,
+     FULLNAME    VARCHAR(20),
+     FURIGANA    VARCHAR(30),
+     TEL_NO      VARCHAR(20),
+     PASSWORDS   CHAR(20),
+     DIVISION_NO SMALLINT,
+     SECTION_NO  SMALLINT );
+
+/*************** 部署情報 **********************/
+CREATE TABLE DIVISION(
+      DIVISION_NO  SMALLINT  NOT NULL PRIMARY KEY,
+      DIVISION     VARCHAR(20) NOT NULL UNIQUE);
+
+/***************** 課情報 **********************/
+CREATE TABLE SECTION(
+      SECTION_NO  SMALLINT  NOT NULL PRIMARY KEY,
+      SECTION     VARCHAR(20) NOT NULL UNIQUE);
+
+/***************** グループ情報 *****************/
+/* 0:グローバルグループ                         */
+/* 1:パーソナルグループ                         */
+CREATE TABLE GROUP_DATA(
+     GROUP_NO   SMALLINT NOT NULL PRIMARY KEY,
+     GROUP_NAME VARCHAR(20) NOT NULL UNIQUE,
+     OWNER_ID   SMALLINT DEFAULT 0,
+     GROUP_TYPE SMALLINT DEFAULT 0,
+     IS_DIVISION SMALLINT DEFAULT 0);
+
+/************** グループメンバー情報 *************/
+CREATE TABLE GROUP_INFO(
+     GROUP_ID   SMALLINT NOT NULL PRIMARY KEY,
+     GROUP_NO   SMALLINT NOT NULL,
+     USER_ID    SMALLINT);
+
+/************** 予約情報 *************************/
+CREATE TABLE RESERVATION(
+    RESERVED_ID  SMALLINT NOT NULL PRIMARY KEY,
+    OWNER_ID     SMALLINT DEFAULT 0,
+    ROOM_ID      SMALLINT NOT NULL,
+    START_DATE   DATE NOT NULL,
+    END_DATE     DATE NOT NULL,
+    IS_GROUP     SMALLINT DEFAULT 0,
+    GROUP_NO     SMALLINT DEFAULT 0,
+    CHECK (START_DATE<END_DATE));
+
+/************** 施設情報 ************************/
+CREATE TABLE ROOMS(
+   ROOM_ID      SMALLINT NOT NULL PRIMARY KEY,
+   ROOM         VARCHAR(30) NOT NULL UNIQUE,
+   OWNER_GROUP  SMALLINT DEFAULT 0);
+
+/************** スケジュール情報 *****************/
+CREATE TABLE SCHEDULE(
+   SCHEDULE_ID     SMALLINT NOT NULL PRIMARY KEY,
+   OWNER_ID        SMALLINT DEFAULT 0,
+   IS_GROUP        SMALLINT DEFAULT 0,
+   GROUP_NO        SMALLINT DEFAULT 0,
+   START_DATE      DATE,
+   END_DATE        DATE,
+   PRIORITY        SMALLINT DEFAULT 0,
+   COMMENT         VARCHAR(50) NOT NULL,
+   ISRESERVED      SMALLINT DEFAULT 0,
+   CHECK (START_DATE<END_DATE));
+
+/***************** 休日情報 *********************/
+CREATE TABLE HOLIDAY(
+    HOLIDAY_ID    SMALLINT NOT NULL PRIMARY KEY,
+    IS_STATIC     SMALLINT DEFAULT 1,
+    HOLIDAY       DATE,
+    COMMENT       VARCHAR(50)
+);    
+
+/************ テーブルの書き込み ****************
+COMMIT;
+
+
+/******************************************/
+/*             トリガーの作成             */
+/******************************************/
+
+/*-------------------------------------------*/
+/*   トリガー名:SET_USER_ID                  */
+/*   USER_IDをセットするトリガー　　　　　　 */
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE TRIGGER SET_USER_ID FOR USERINFO
+  BEFORE INSERT 
+AS
+  DECLARE VARIABLE NEW_ID INT;
+BEGIN
+   SELECT MAX(USER_ID)+1 FROM USERINFO 
+     INTO :NEW_ID;
+   IF (NEW_ID IS NULL) THEN
+      BEGIN
+         NEW.USER_ID=1;
+      END
+   ELSE
+      BEGIN     
+         NEW.USER_ID=:NEW_ID;
+      END   
+END
+!!
+SET TERM ;!!
+
+/*-------------------------------------------*/
+/*   トリガー名:SET_GROUP_ID                 */
+/*   GROUP_IDをセットするトリガー　　　　　　*/
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE TRIGGER SET_GROUP_ID FOR GROUP_INFO
+  BEFORE INSERT
+AS
+  DECLARE VARIABLE NEW_ID INT;
+BEGIN
+   SELECT MAX(GROUP_ID)+1 FROM GROUP_INFO INTO :NEW_ID;
+   IF (NEW_ID IS NULL) THEN
+      BEGIN
+        NEW.GROUP_ID=1;
+      END
+   ELSE
+      BEGIN
+        NEW.GROUP_ID=:NEW_ID;
+      END  
+END
+!!
+SET TERM ;!!
+
+/*-------------------------------------------*/
+/*   トリガー名:SET_GROUP_NO                 */
+/*   GROUP_NOをセットするトリガー　　　　　 */
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE TRIGGER SET_GROUP_NO FOR GROUP_DATA
+  BEFORE INSERT
+AS
+  DECLARE VARIABLE NEW_ID INT;
+BEGIN
+   SELECT MAX(GROUP_NO)+1 FROM GROUP_DATA INTO :NEW_ID;
+   IF (NEW_ID IS NULL) THEN
+      BEGIN
+         NEW.GROUP_NO=1;
+      END
+   ELSE
+      BEGIN
+         NEW.GROUP_NO=:NEW_ID;
+      END   
+END
+!!
+SET TERM ;!!
+
+/*-------------------------------------------*/
+/*   トリガー名:SET_DIVISION_NO              */
+/*   DIVISION_NOをセットするトリガー 　　　  */
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE TRIGGER SET_DIVISION_NO FOR DIVISION
+  BEFORE INSERT
+AS
+  DECLARE VARIABLE NEW_ID INT;
+BEGIN
+   SELECT MAX(DIVISION_NO)+1 FROM DIVISION INTO :NEW_ID;
+   IF (NEW_ID IS NULL) THEN
+      BEGIN
+        NEW.DIVISION_NO=1;
+      END
+   ELSE
+      BEGIN  
+        NEW.DIVISION_NO=:NEW_ID;
+      END  
+END
+!!
+SET TERM ;!!
+
+/*-------------------------------------------*/
+/*   トリガー名:SET_SECTION_NO               */
+/*   SET_SECTION_NOをセットするトリガー　　  */
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE TRIGGER SET_SECTION_NO FOR SECTION
+  BEFORE INSERT
+AS
+  DECLARE VARIABLE NEW_ID INT;
+BEGIN
+   SELECT MAX(SECTION_NO)+1 FROM SECTION INTO :NEW_ID;
+   IF (NEW_ID IS NULL) THEN
+      BEGIN
+         NEW.SECTION_NO=1;
+      END
+   ELSE
+      BEGIN   
+         NEW.SECTION_NO=:NEW_ID;
+      END   
+END
+!!
+SET TERM ;!!
+
+/*-------------------------------------------*/
+/*   トリガー名:ADD_GROUP                    */
+/*   追加された部情報をグループに登録 　　　 */
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE TRIGGER ADD_GROUP FOR DIVISION
+  AFTER INSERT
+AS
+BEGIN
+  INSERT INTO GROUP_DATA (GROUP_NAME,IS_DIVISION) VALUES (NEW.DIVISION,1); 
+END
+!!
+SET TERM ;!!
+
+/*-------------------------------------------*/
+/*   トリガー名:ADD_USER_TO_GROUP            */
+/*   追加されたユーザーをグループに登録 　　 */
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE TRIGGER ADD_USER_TO_GROUP FOR USERINFO
+  AFTER INSERT
+AS
+  DECLARE VARIABLE EVERYONE_ID INT;
+  DECLARE VARIABLE DIVISION_NAME CHAR(20);
+  DECLARE VARIABLE DIVISION_GROUP_NO INT;
+BEGIN
+  SELECT GROUP_NO FROM GROUP_DATA 
+     WHERE UPPER(GROUP_NAME)='EVERYONE'
+     INTO :EVERYONE_ID;
+  INSERT INTO GROUP_INFO 
+        (GROUP_NO, USER_ID) 
+     VALUES 
+        (:EVERYONE_ID, NEW.USER_ID);
+  /* Check where User belong to */
+  IF (NEW.DIVISION_NO IS NOT NULL) THEN 
+     BEGIN     
+        SELECT DIVISION FROM DIVISION 
+	     WHERE DIVISION_NO=NEW.DIVISION_NO INTO :DIVISION_NAME;
+	SELECT GROUP_NO FROM GROUP_DATA
+	     WHERE GROUP_NAME=:DIVISION_NAME INTO DIVISION_GROUP_NO;
+	INSERT INTO GROUP_INFO 
+	     (GROUP_NO, USER_ID) 
+	   VALUES 
+	     (:DIVISION_GROUP_NO, NEW.USER_ID);
+     END
+END
+!!
+SET TERM ;!!
+
+/*-------------------------------------------*/
+/*   トリガー名:SET_RESERVED_ID              */
+/*   RESERVED_IDの設定                  　　 */
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE TRIGGER SET_RESERVED_ID FOR RESERVATION
+  BEFORE INSERT
+AS
+  DECLARE VARIABLE NEW_ID INT;
+BEGIN
+   SELECT MAX(RESERVED_ID) FROM RESERVATION INTO :NEW_ID;
+   IF (:NEW_ID IS NULL) THEN
+      BEGIN
+        NEW.RESERVED_ID=1;
+      END
+   ELSE
+      BEGIN
+        NEW.RESERVED_ID=:NEW_ID+1;
+      END  
+END
+!!
+SET TERM ;!!    
+
+/*-------------------------------------------*/
+/*   トリガー名:SET_ROOM_ID                  */
+/*   ROOM_IDの設定                      　　 */
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE TRIGGER SET_ROOM_ID FOR ROOMS
+  BEFORE INSERT
+AS
+  DECLARE VARIABLE NEW_ID INT;
+BEGIN
+   SELECT MAX(ROOM_ID) FROM ROOMS INTO :NEW_ID;
+   IF (:NEW_ID IS NULL) THEN
+      BEGIN
+        NEW.ROOM_ID=1;
+      END
+   ELSE
+      BEGIN
+        NEW.ROOM_ID=:NEW_ID+1;
+      END  
+END
+!!
+SET TERM ;!!
+
+/*-------------------------------------------*/
+/*   トリガー名:SET_SCHEDULE_ID              */
+/*   SCHEDULE_IDの設定                  　　 */
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE TRIGGER SET_SCHEDULE_ID FOR SCHEDULE
+  BEFORE INSERT
+AS
+  DECLARE VARIABLE NEW_ID INT;
+BEGIN
+   SELECT MAX(SCHEDULE_ID) FROM SCHEDULE INTO :NEW_ID;
+   IF (:NEW_ID IS NULL) THEN
+      BEGIN
+        NEW.SCHEDULE_ID=1;
+      END
+   ELSE
+      BEGIN
+        NEW.SCHEDULE_ID=:NEW_ID+1;
+      END  
+END
+!!
+SET TERM ;!!
+
+/*-------------------------------------------*/
+/*   トリガー名:ADD_RESERVED_TO_SCHE         */
+/*   追加された施設予約をスケジュールに登録  */
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE TRIGGER ADD_RESERVED_TO_SCHE FOR RESERVATION
+  AFTER INSERT
+AS
+  DECLARE VARIABLE LOCATION CHAR(30);   
+BEGIN
+   SELECT ROOM FROM ROOMS WHERE ROOM_ID=NEW.ROOM_ID INTO :LOCATION;
+   INSERT INTO SCHEDULE
+       (OWNER_ID,IS_GROUP,GROUP_NO,START_DATE,END_DATE,COMMENT, ISRESERVED)
+     VALUES
+       (NEW.OWNER_ID,NEW.IS_GROUP,NEW.GROUP_NO,NEW.START_DATE,
+        NEW.END_DATE,:LOCATION,1);
+END
+!!
+SET TERM ;!!      
+
+/*-------------------------------------------*/
+/* トリガー名:DEL_RESERVED_FROM_SCHE         */
+/* 削除された施設予約をスケジュールから削除  */
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE TRIGGER DEL_RESERVED_FROM_SCHE FOR RESERVATION
+  AFTER DELETE
+AS
+BEGIN
+   DELETE FROM SCHEDULE S
+        WHERE S.START_DATE=OLD.START_DATE AND S.END_DATE=OLD.END_DATE
+              AND S.OWNER_ID=OLD.OWNER_ID AND S.GROUP_NO=OLD.GROUP_NO
+              AND S.IS_GROUP=OLD.IS_GROUP;
+END
+!!
+SET TERM ;!!      
+
+/*-------------------------------------------*/
+/*   トリガー名:SET_HOLIDAY_ID               */
+/*   HOLIDAY_IDの設定                   　　 */
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE TRIGGER SET_HOLIDAY_ID FOR HOLIDAY
+  BEFORE INSERT
+AS
+  DECLARE VARIABLE NEW_ID INT; 
+BEGIN
+   SELECT MAX(HOLIDAY_ID)+1 FROM HOLIDAY
+     INTO :NEW_ID;
+   IF (NEW_ID IS NULL) THEN
+      BEGIN
+         NEW.HOLIDAY_ID=1;
+      END
+   ELSE
+      BEGIN     
+         NEW.HOLIDAY_ID=:NEW_ID;
+      END   
+END
+!!
+SET TERM ;!!
+
+/************ トリガーの書き込み **************
+COMMIT;
+
+/******************************************/
+/*     ストアドプロシージャの作成         */
+/******************************************/
+
+/*-------------------------------------------*/
+/*   プロシージャ名:IS_GROUP                 */
+/*   INPUT:USERNAME  CHAR(20)           　　 */
+/*         GROUPNAME CHAR(20)                */
+/*  OUTPUT:IS_GROUP INT                      */
+/*           1:グループに属している          */
+/*           0:グループに属していない        */
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE PROCEDURE IS_GROUP(USERNAME CHAR(20),GROUPNAME CHAR(20))
+  RETURNS (IS_GROUP INT)
+AS
+  DECLARE VARIABLE USERID INT;
+  DECLARE VARIABLE GROUP_NO INT;
+BEGIN
+   SELECT USER_ID FROM USERINFO WHERE ACCOUNT=UPPER(:USERNAME) INTO :USERID;
+   SELECT GROUP_NO FROM GROUP_DATA WHERE GROUP_NAME=:GROUPNAME INTO :GROUP_NO;
+   SELECT COUNT(I.GROUP_ID) FROM GROUP_INFO I, GROUP_DATA G 
+     WHERE I.USER_ID=:USERID AND G.GROUP_NO=:GROUP_NO 
+           AND I.GROUP_NO=:GROUP_NO INTO :IS_GROUP;
+END
+!!
+SET TERM ; !!  
+
+/*-------------------------------------------*/
+/*   プロシージャ名:GROUP_MEMBER             */
+/*   INPUT:GROUPNAME CHAR(20)           　　 */
+/*  OUTPUT:RT_GROUPNAME, RT_USERNAME         */
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE PROCEDURE GROUP_MEMBER(GROUPNAME CHAR(20))
+  RETURNS (RT_GROUPNAME CHAR(20),RT_USERNAME CHAR(20))
+AS
+  DECLARE VARIABLE GROUPNO INT;
+  DECLARE VARIABLE USERID   INT;
+BEGIN
+  SELECT GROUP_NO FROM GROUP_DATA 
+      WHERE GROUP_NAME=:GROUPNAME
+      INTO :GROUPNO;
+  IF (:GROUPNO IS NOT NULL) THEN
+     BEGIN
+        FOR SELECT USER_ID FROM GROUP_INFO
+            WHERE GROUP_NO=:GROUPNO 
+            INTO :USERID
+        DO
+            BEGIN
+              RT_GROUPNAME=GROUPNAME;
+              SELECT FULLNAME FROM USERINFO 
+			      WHERE USER_ID=:USERID
+                  INTO :RT_USERNAME;
+              IF (:RT_USERNAME IS NULL) THEN
+                 RT_USERNAME='(NO MEMBER)';
+              SUSPEND;
+            END
+     END
+  ELSE
+     BEGIN
+        RT_GROUPNAME=GROUPNAME;
+        RT_USERNAME='ERROR';
+        SUSPEND;
+     END
+END
+!!
+SET TERM ; !!  
+
+
+/* 追加 */
+/*-------------------------------------------*/
+/*   プロシージャ名:IS_LOGIN                 */
+/*   INPUT:USERNAME  CHAR(20)           　　 */
+/*         INPPASS   CHAR(20)                */
+/*  OUTPUT:ISLOGIN                           */
+/*            1:ログイン成功                 */
+/*            0:ログイン失敗                 */
+/*-------------------------------------------*/
+SET TERM !!;
+CREATE PROCEDURE IS_LOGIN(USERNAME CHAR(20), INPPASS CHAR(20))
+  RETURNS (ISLOGIN INT)
+AS
+  DECLARE VARIABLE ORGPASS CHAR(20);
+BEGIN
+  SELECT UPPER(PASSWORDS) FROM USERINFO 
+      WHERE ACCOUNT=UPPER(:USERNAME) INTO :ORGPASS;
+  IF (:INPPASS=:ORGPASS) THEN
+     BEGIN
+        ISLOGIN=1;
+     END
+  ELSE
+     BEGIN
+        ISLOGIN=0;
+     END
+END
+!!
+SET TERM ; !!
+
+
+/************ プロシージャの書き込み ****************
+COMMIT;
+
+QUIT;

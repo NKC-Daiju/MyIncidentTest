@@ -1,0 +1,93 @@
+第11章 Firebirdを使ったWebアプリケーションの作成
+
+第3部まででFirebirdの使い方、Firebirdに対応したミドルウェアの使い方と簡単なサンプルを紹介してきました。これまでの内容をベースにFirebirdを使った本格的なWebシステムの構築を行ってみたいと思います。今回のアプリケーションではJava言語を使用してサーブレットベースのWebスケジューラを作成します。
+
+11-1.サーブレットの概要
+実際にWebアプリケーションの構築に入る前にサーブレットについて簡単に説明しておきましょう。
+サーブレットはServlet APIというのを使用してプログラミングしていくことになります。。Servlet APIは現在Vsersion 2.4が公開されています。VisualAge for JavaやJBuilderなどの開発ツールでは、サーブレットを簡単に作成するためのウィザードやデバッグ機能が装備されていますので、そういった機能を使用してもいいでしょう。
+通常、JavaのAPIはjava.net...、java.io....とjavaで始まりますが、Servlet APIはjavax.servlet、javax.servlet.httpとextentionを意味する"x"がパッケージ名につけられており、Servlet APIは基本的に次の2つのパッケージから構成されています。
+
+	・javax.servletパッケージ
+		javax.servlet.Servletやjavax.servlet.ServletResponseなどのServletのライフサイクルを定義している6つのインタフェース、javax.servlet.GenericServletなどのServletからの出力と一般的なネットワーク・サービス上の通信を定義している3つの抽象クラス、javax.servlet.ServletExceptionなどの2つの例外などが定義されている。
+	・javax.servlet.httpパッケージ
+		ネットワーク・サービスの中で特にHTTPに依存した通信を定義している、具体的なレベルでのクラス群。HTTPのヘッダの処理を行うjavax.servlet.http.HttpServletRequest、HTTPのresponseを処理するためのjavax.servlet.http.HttpServletResponseなどの5つのインタフェース、HTTP Cookieを使用するためのjavax.servlet.http.CookieやHTTPのPost、Get、Put、Deleteを処理するjavax.servlet.http.HttpServletクラスなど4つのクラスが定義されている。
+Servlet APIはHTTPだけでなくFTP(File Transfer Protocol)やその他のプロトコルをサポートされており、さまざまなネットワーク・サービスに対応することができます。
+パート1で説明したように、サーブレットはCGIと異なり毎回プロセスが作成されず、いったんロードされると図2のようなライフサイクルとなります。ライフサイクルを定義しているのはjavax.servlet.Servletインタフェースで定義されているメソッドです。
+
+図11-1-1.サーブレットのライフサイクル
+(fig11-1-1.bmp)
+
+図11-1-1のライフサイクルは以下のように動作します。
+	1.クラスファイルがServlet Engine(Java VM)上にロードされ、インスタンスが生成される。
+	2.ロードされたクラスファイルのinit()メソッドが起動され、初期化が行われる。
+	3.初期化された後の動作状態でクライアントからの要求が発生すると、service()メソッドで定義されている処理が実行され、応答がクライアントに返される。通常はこの状態で存在し、service()メソッドが繰り返し実行される。
+	4.管理ツールなどで明示的にアンロードされたときやクラスファイルが更新されたことをServlet Engineが見つけた場合、destroy()メソッドが起動され、servletがメモリ上から消滅する。
+	5.クラスファイルが更新されてdestroy()メソッドが起動された場合は更新後のクラスファイルがロードされ、インスタンスが生成される。
+
+サーブレットはCGIに比べ上記のようなライフサイクルを持つためパフォーマンスに適していることは分かりましたが、サーブレットの開発効率はどうなのでしょうか。
+Java言語はオブジェクト指向、マルチスレッド処理、ガーベージコレクトション、マルチプラットフォームなどの特長を持っていますので、Java言語を使って記述されるサーブレットに対してもこれらの特長が有効となります。Javaの持つマルチプラットホームの特長により、アクセスに応じてServlet Engineの動作するプラットホームを変更することや、新しいServlet APIやServlet Engineを使用することで機能拡張を簡単に実現したりすることができます。開発面で考えた場合、VisualAge for JavaやJBuilderといったビジュアル開発ツールがリリースされており、こういったビジュアル開発ツールを使用した場合はウィザード機能などが提供されているため、JDKをコマンドラインで使用するのに比べ、生産性が数十倍高くなるだけでなく、初めてJavaを書く場合の敷居が低くなります。拡張性を考えた場合、ブラウザベースの検索はサーブレット、更新系はアプレットまたはアプリケーションと分けて共通のビジネスロジックが書かれたパッケージを共有したりすることができます。また、小さいプログラムを組み合わせ、ある程度のシステムを作り上げることもそれほど難しいことはありません。JavaはRMIやCORBAを使用することでメンテナンス性と拡張性に優れた分散システムを作成することができますし、JNIを利用することで他の言語で書かれたDLLなどを利用することも可能です。このように、Javaの持つ拡張性をうまく活用することで小さいシステムを大規模なシステムへと拡張していくことも可能になります。
+このようにJavaの持っている利点をサーブレットは生かしていくことが可能であるため、非常に拡張性とメンテナンス効率に適していると言えるでしょう。
+
+サーブレットを作成する場合は、Servlet APIを使用してプログラミングを行います。サーブレットはHTTPプロトコルのコマンドに従い、動作することになります。HTTPのコマンドに対応するJavaのメソッドは表11-1-1のようになります。これらのメソッドはHttpServletクラスにあります。サーブレットを作成する場合はHttpServerクラスを継承するクラスを作成し、doGetやdoPutなどの各メソッドにコードを記載していくことになります。
+
+表11-1-1.HTTPコマンドとJavaのメソッド
+	HTTP コマンド					Javaのメソッド
+----------------------------------------------------------------------------------
+	GET					doGet(HttpServletRequest, HttpServletResponse)
+	POST					doPost(HttpServletRequest, HttpServletResponse)
+	OPTIONS					doOptions(HttpServletRequest, HttpServletResponse)
+	PUT					doPut(HttpServletRequest, HttpServletResponse)
+	DELETE					doDelete(HttpServletRequest, HttpServletResponse)
+	TRACE					doTrace(HttpServletRequest, HttpServletResponse)
+	SERVICE					Service(HttpServletRequest, HttpServletResponse)
+
+リスト11-1-1はブラウザ上にHello World!という文字列を表示するHello.javaです。ここではJakarta Tomcatで実行しています。
+ソースを見てみると、ブラウザでサーブレットのURLが指定されると、GETコマンドに対応するdoGetメソッドが起動され、PrintWriterクラスを使用してHTMLドキュメントを生成していることが分かります。HTMLドキュメントを生成する場合は、コンテンツタイプとして"text/html"を指定します。
+
+リスト11-1-1.Hello.java
+import  java.io.*;
+import  javax.servlet.*;
+import  javax.servlet.http.*;
+
+public class Hello extends HttpServlet {
+        public void doGet(HttpServletRequest req, HttpServletResponse res)
+          throws ServletException, IOException
+        {
+                ///コンテントタイプの設定
+                res.setContentType("text/html");
+                //ドキュメントを生成するPrintWriterオブジェクトの作成
+                PrintWriter out = res.getWriter();
+                //HTMLヘッダーの生成
+                out.println("<HTML><BODY>");
+                //Hello, World!の生成
+                out.println("Hello, World!");
+                //HTMLドキュメントの終了
+                out.println("</BODY></HTML>");
+                //ドキュメント生成終了
+                out.close();
+        }
+
+        public String getServletInfo() {
+                return "Hello World servlet";
+        }
+}
+
+図11-1-2.Hello.javaを実行したところ
+(fig11-1-2.bmp)
+
+こうやってみるとサーブレットも非常に簡単な仕組みであることが分かりますが、サーブレットで日本語を使用するときは少しやっかいになります。エンコードという問題が発生します。上記のHello.javaで日本語を生成した場合、すべて文字化けします。日本語を使用する場合は、次のように処理してやらなければなりません。
+
+    PrintWriter out = new PrintWriter(
+      new OutputStreamWriter(response.getOutputStream(), "SJIS"));
+
+この例ではSJISにエンコードしています。ここではなぜこのような形で記載するのかについては説明しませんが、サーブレットを書くときは必ず文字列のエンコード処理を記載することをルールとして覚えておいてください。
+よくアンケートページなどでは入力された文字列をパラメータとして受け取り、CGIなどで処理します。同じようなことがサーブレットでも可能であり、パラメータを取得するためのgetParameter()メソッドが用意されています。この場合もエンコード処理が必要かどうかを考慮する必要があります。
+
+         //エンコード処理がいらない場合
+         empNo = request.getParameter("EMPNO");
+         //エンコード処理が必要な場合
+         name = new String(request.getParameter("name").getBytes("8859_1"),"SJIS");
+
+エンコード処理の部分は少しやっかいになりますが、この点だけを注意していけばサーブレットプログラムで文字化けに悩まされることはありません。
+また、HTTP Cookieを利用することも可能ですので、サーブレットはHTTPを介した処理のすべてを利用できると言っていいでしょう。
+サーブレットを使用するにはサーブレットエンジンが必要になります。Apache Software Foundationが開発しているJakarta Tomcatなどのオープンソースのものを使用することもできますし、IBM社がリリースしているWebShpereなどのアプリケーションサーバー製品を使用するのもいいでしょう。どの程度、堅牢性を要求するのかメンテナンス効率やパフォーマンスはどの程度要求されるのかを検討して、サーブレットエンジンを選択してください。今回のWebアプリケーションではJakarta Tomcatを使用して行います。

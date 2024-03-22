@@ -1,0 +1,726 @@
+11-6.スケジューラの開発（その3）
+～ユーザー登録画面の作成～
+
+adminFormClassクラスが生成した管理者メニューから[ユーザー登録画面]が選択されると、userRegisterClassクラスが起動されます。このクラスはユーザーの追加機能が果たす役割は新しいユーザーの追加または既存ユーザーの編集です。adminFormClassクラスのdoGetメソッドで追加なのかあるいは編集なのかを選択し、doPutメソッドで追加なら追加するのに必要な画面を、編集なら既存ユーザーの情報を表示・編集する画面を生成します。doPostメソッドでそれぞれの入力・編集画面を生成することができますが、それらの入力項目を元に処理してやるためのクラスが別に必要になります。図11-6-1はuserRegisterClassのdoGetメソッドとdoPostメソッドの役割を概略図にしたものです。doGetメソッドでは編集の場合に備えて、既存のユーザーのアカウント名を選択メニューで表示し、追加の場合に備えて新規アカウント名の入力用の入力フィールドを作ります。doPostメソッドは編集または追加のボタンのどちらを押したかによって生成される画面が異なるようになります。編集の場合は、doGetメソッドで選択されたアカウント名の情報を表示します。追加の場合は、入力された新規アカウント名がすでに使われているものかどうかを判定し、使われていない場合のみ登録画面を生成します。
+
+図11-6-1.userRegisterClassクラスの流れ
+(fig11-6-1.bmp)
+
+doGetメソッド内から呼び出される追加・編集選択フォームを生成するcreateUserRegisterFormメソッドで前述したように、既存のユーザーのアカウント名を選択メニューで表示します。
+
+ソース11-6-1. createUserRegisterFormメソッド
+//追加・編集選択フォームの作成
+private void createUserRegisterForm(PrintWriter out, HttpServletRequest request)
+{
+  out.println("<HTML>");
+  out.println("<HEAD><TITLE>Firebird ユーザー登録画面</TITLE></HEAD>");
+  out.println("<body background=\"images/BCG_006.GIF\">");
+  out.println("<center><img SRC=\"images/USERMENU.gif\"></center><BR><HR>");
+  out.println("<H1><FONT COLOR=\"00FFFF\">"
+             +"<CENTER>Firebird Scheduler ユーザー登録画面</CENTER>"
+             +"</H1></FONT><BR><HR>");
+  out.print("<form method=\"post\" action=\"");
+  out.print(request.getRequestURI());
+  out.print("\" >");
+  out.println("<FONT COLOR=\"FFFFFF\"><H2>ユーザーの編集</H2></FONT><BR>");
+  out.println("<FONT COLOR=\"#BAFEC9\">編集するユーザー名:</FONT><BR>");
+  out.println("<SELECT NAME=\"UserName\" >");
+  try {
+        //ユーザー情報の取得
+        java.sql.Statement statement = conn.createStatement();
+        java.sql.ResultSet rs = statement.executeQuery("select ACCOUNT from USERINFO");
+        while (rs.next()) {
+              //選択メニューにアカウント名を追加
+              out.println("<OPTION>"+rs.getString("ACCOUNT"));
+        }
+        rs.close();
+  } catch (Exception e) {
+      e.printStackTrace();
+  }
+  out.println("</SELECT><BR>");
+  out.println("<input type=\"submit\" name=\"selected\" value=\"編集\"><BR><HR>");
+  out.println("<H2><FONT COLOR=\"#00FFFF\">ユーザーの新規作成</H2></FONT><BR>");
+  out.println("<FONT COLOR=\"#FFFFFF\">新規ユーザー名:"
+             +"<input type=\"text\" name=\"NewUserID\"></FONT><BR>");
+  out.println("<input type=\"submit\" name=\"selected\" value=\"新規\">");
+  //フッターの出力
+  writeFooter(out);
+  out.println("<BR><BR>");
+  out.println("</BODY></HTML>");
+}
+
+ソース11-6-1がcreateUserRegisterFormメソッドのソースコードです。"select ACCOUNT from USERINFO"のクエリを実行し、クエリー結果を選択メニューの値として入力しています。選択メニューを作成したら、[編集]ボタンを作成します。追加の場合も考慮して、新規アカウント名の入力ボックスと[新規]ボタンを作成しています。
+doGetメソッドで生成された画面は図11-6-2のようになります。上の部分が編集の処理用、下の部分が新規の処理用としています。セッション管理を行い、ログインされたユーザー名に表示しています。
+
+図11-6-2.ユーザー追加・編集画面
+(fig11-6-2.bmp)
+
+図11-6-2の画面で編集および追加ボタンが押されると、userRegisterClassクラスのdoPostメソッドが実行されます。このときクライアントが編集処理を行いたいのかあるいは新規追加の処理を行いたいのかに合わせて画面を作成する必要があります。これらの判定はどちらのボタンを押したかによって行います。ソース11-6-1を参照すると、[編集]ボタンも[追加]ボタンも同じ"selected"という名前を使用しており、どちらのボタンを押したかをVALUEの値で参照できるようになっています。このselectedだけでなく、既存アカウントの選択メニュー、新規アカウント名の入力ボックスの値はWebサーバーに送られ、doPostメソッドのrequestオブジェクトの中に格納されます。getParamters(<名前>)メソッドを使用することでこれらの値を取得することができますが、日本語が入っている場合は注意が必要です。クライアントから送られてきた値をデコードしてやる必要があります。
+
+
+ソース11-6-2.requestオブジェクトに格納されているデータをSJISでハッシュテーブルに格納するメソッド
+  private Hashtable getParameters(HttpServletRequest request)
+    throws IOException {
+
+    Hashtable data = new Hashtable();
+    Enumeration e = request.getParameterNames();
+    while (e.hasMoreElements()) {
+      String key = (String)e.nextElement();
+      String[] values = request.getParameterValues(key);
+      for (int i=0; i<values.length;i++) {
+          data.put(key, new String(
+              values[i].getBytes("8859_1"),"SJIS"));
+      }
+    }
+    return data;
+  }
+
+ソース11-6-2はrequestオブジェクトに格納されているデータをSJISに変換し、ハッシュテーブルに格納するgetParametersメソッドです。requestオブジェクトに格納されている要素が複数の場合を想定しています。たとえば、"DAIJU"という新規のアカウント名が入力され、[追加]ボタンが押された場合は作成されるハッシュテーブルには図-11-6-3のような形で値が納められます。
+
+図11-6-3.ハッシュテーブルの状態
+   +------------+---------+
+   |    Key     |  Value  |
+   +------------+---------+
+   |  UserName  |  DKATO  |
+   +------------+---------+
+   | newUserID  |  DAIJU  |
+   +------------+---------+
+   | selected   |  追加   |
+   +------------+---------+
+
+ソース11-6-3.ハッシュテーブルから値を取得
+    //Hashtableの作成
+    Hashtable parameters = getParameters(request);
+    //hashtableに書き込まれている値を取得
+    String selectedButton = (String)parameters.get("selected");
+    String NewUserID = (String)parameters.get("NewUserID");
+    String UserName = (String)parameters.get("UserName");
+    if (selectedButton.indexOf("新規")>=0) {
+        //ユーザー追加
+        addUserForm(request, out, NewUserID);
+    } else {
+       //ユーザー編集
+        editUserForm(request, out, UserName);
+    }
+
+
+ソース11-6-4は作成したハッシュテーブルからこれらの値を取得するコードを示したものです。2次元でデータを格納でき、keyを元に値が取得できるます。
+図11-6-2の画面で押されたボタンが"編集"ボタンなのかあるいは"追加"ボタンなのかはselectedの値を参照することが判定することができますので、判定した結果からそれぞれの画面を生成します。
+"追加"ボタンが選択された場合、入力された新規アカウント名がすでに使われていないかを調べてます。既存アカウント名かどうかを判定する機能をcheckUserIDメソッドにて提供します（ソース11-6-4)。SQLのCOUNT演算子を使用して入力された値と一致するアカウント名があるかどうかを調べ、その結果を返します。
+
+  ソース11-6-4.新規ユーザー名かを判断するcheckUserIDメソッド
+  private int checkUserID(String newAccount) {
+     try {
+			//SQL文の実行の準備
+            java.sql.Statement statement = conn.createStatement();
+            java.sql.ResultSet rs = statement.executeQuery(
+               "select COUNT(ACCOUNT) from USERINFO WHERE ACCOUNT=\""
+                   +newAccount.trim()+"\"");
+            rs.next();
+            //カウントした値を取得
+            int isExist = rs.getInt("COUNT");
+            rs.close();
+            return isExist;
+     } catch (Exception e) {
+           e.printStackTrace();
+       return -1;
+     }
+  }
+
+checkUserIDメソッドの返値で一致するものがあるかどうかが分かります。0以外の値が返ってきたときはエラーとして処理します。0の場合は、新規ユーザー追加に必要な"名前","ふりがな","内線番号","パスワード"の入力ボックスと"部署名"を選択できる選択メニューを生成します(userRegisterClass.java内のaddUserFormメソッドを参照)。
+
+addUserFormメソッドで生成される画面は図11-6-4のようになります。
+
+図11-6-4.addUserFormメソッドで生成される新規アカウント情報入力画面
+ (fig11-6-5.bmp)
+
+図11-6-4で新規アカウントの情報が入力され、登録ボタンが押されるとaddNewUserクラスが実行されます。このクラスはdoPostメソッドだけのクラスです。userRegisterClassクラスのaddUserFormメソッドで生成した図11-6-4の画面に入力されたデータをベースにSQL文を組み立てて、データベースへの追加が行われます。requestオブジェクトの値をハッシュテーブルに格納し、格納された値を元にSQL文にします。SELECT文ではexecuteQueryメソッドでResultSetを返値として受け取ってきました。INSERT文やUPDATE文の場合はこちらのexecuteUpdateメソッドを使用します。ソース11-6-5はSQL文を作成して実行している部分のコードです。部署以外はハッシュテーブルに納められている値をそのまま挿入すればいいのですが、部署は部署名ではなくて部署番号が必要となります。ハッシュテーブルに納められている部署名から部署番号を取得するgetDivisionNoメソッドを作成し、部署番号を挿入できるようにしています(addNewUser.javaのgetDivisionNoメソッドを参照)。
+
+		ソース11-6-5.SQL文の作成と実行
+          //sql文の作成
+          sql = "INSERT INTO USERINFO (ACCOUNT, FULLNAME, FURIGANA, "
+              +"PASSWORDS, TEL_NO, DIVISION_NO ) VALUES (\""
+              +userInfo.get("ACCOUNT")+"\",\""
+              +userInfo.get("FULLNAME")+"\",\""
+              +userInfo.get("FURIGANA")+"\",\""
+              +userInfo.get("PASSWORD")+"\",\""
+              +userInfo.get("TEL_NO")+"\","
+              +getDivisionNo((String)userInfo.get("DIVISION"))+")";
+          java.sql.Statement statement = dbIBSchedule.createStatement();
+          //SQL文の実行
+          statement.executeUpdate(sql);
+
+SQL文がエラーなく実行されると、追加されたユーザーの情報を画面に表示します。図11-6-5は登録が完了したときに表示される画面です。
+
+図11-6-5.新規ユーザー登録完了画面
+(fig11-6-5.bmp)
+
+ユーザー情報の変更も基本的に新規ユーザー登録とほとんど変わりません。userRegisterClassクラスからeditUserクラスが呼び出されデータベースに送信されるSQL文がUPDATE文であるということです。変更が終了されると、図11-6-6の画面が表示されます。
+
+図11-6-6.ユーザー情報変更完了画面
+(fig11-6-6.bmp)
+
+コードを見ると複雑な感じがしますが、画面の流れを把握しながら処理を押さえていくことで、今回行ったような追加・編集処理のパターンを理解することができるでしょう。
+
+ソース11-6-6.ユーザーの追加・編集の選択画面、入力・編集画面を生成するuserRegisterClassクラス
+/*------------------------------------------------------------
+   Firebird Scheduler
+   ファイル: userRegisterClass.java
+   内容:ユーザーの追加・編集画面の生成、入力・編集画面の生成
+   copyright(c) 2002 Daiju Kato
+--------------------------------------------------------------*/
+package fbschedule;
+
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.io.*;
+import java.util.*;
+import java.sql.*;
+
+public class userRegisterClass extends HttpServlet {
+  Connection conn = null;
+
+  public void init(ServletConfig config) throws ServletException {
+    super.init(config);
+  }
+
+//HTTP Get リクエストの処理
+  public void doGet(HttpServletRequest request, HttpServletResponse response)
+     throws ServletException, IOException {
+    response.setContentType("text/html;charset=sjis");
+    PrintWriter out = new PrintWriter(
+      new OutputStreamWriter(response.getOutputStream(), "SJIS"));
+    //ユーザー登録フォームの作成
+    try {
+          //データベースに接続
+          Database dbFBSchedule = new Database();
+          conn = dbFBSchedule.getConnection();
+          createUserRegisterForm(out, request);
+          //データベースから切断
+          dbFBSchedule.releaseConnection();
+    } catch (Exception e) {
+      e.printStackTrace();
+      throw new ServletException(e.toString());
+    }
+    out.flush();
+    out.close();
+  }
+
+//HTTP Post リクエストの処理
+  public void doPost(HttpServletRequest request, HttpServletResponse response)
+     throws ServletException, IOException {
+    Hashtable parameters = getParameters(request);
+    response.setContentType("text/html;charset=sjis");
+    PrintWriter out = new PrintWriter(
+      new OutputStreamWriter(response.getOutputStream(), "SJIS"));
+    out.println("<html>");
+    out.println("<head><title>Firebird Scheduler ユーザー登録画面</title></head>");
+  	out.println("<body background=\"images/BCG_006.GIF\">");
+  	out.println("<center><img SRC=\"images/USERMENU.gif\"></center><BR><HR>");
+    //hashtableに書き込まれている値を取得
+    String selectedButton = (String)parameters.get("selected");
+    String NewUserID = (String)parameters.get("NewUserID");
+    String UserName = (String)parameters.get("UserName");
+    try {
+         //データベースに接続
+         Database dbFBSchedule = new Database();
+         conn = dbFBSchedule.getConnection();
+         if (selectedButton.indexOf("新規")>=0) {
+          //ユーザー追加
+          addUserForm(request, out, NewUserID);
+         } else {
+         //ユーザー編集
+          editUserForm(request, out, UserName);
+        }
+        //データベースから切断
+        dbFBSchedule.releaseConnection();
+    } catch (Exception e ) {
+      e.printStackTrace();
+    }
+    writeFooter(out);
+    out.println("</body></html>");
+    out.flush();
+    out.close();
+  }
+
+  //ブラウザから受け取ったパラメータをハッシュテーブルに格納
+  private Hashtable getParameters(HttpServletRequest request)
+    throws IOException {
+
+    Hashtable data = new Hashtable();
+    Enumeration e = request.getParameterNames();
+    while (e.hasMoreElements()) {
+      String key = (String)e.nextElement();
+      String[] values = request.getParameterValues(key);
+      for (int i=0; i<values.length;i++) {
+          data.put(key, new String(
+              values[i].getBytes("8859_1"),"SJIS"));
+      }
+    }
+    return data;
+  }
+
+  //追加・編集選択フォームの作成
+  private void createUserRegisterForm(PrintWriter out, HttpServletRequest request)
+  {
+    out.println("<HTML>");
+    out.println("<HEAD><TITLE>Firebird ユーザー登録画面</TITLE></HEAD>");
+  	out.println("<body background=\"images/BCG_006.GIF\">");
+  	out.println("<center><img SRC=\"images/USERMENU.gif\"></center><BR><HR>");
+    out.println("<H1><FONT COLOR=\"00FFFF\">"
+               +"<CENTER>Firebird Scheduler ユーザー登録画面</CENTER>"
+               +"</H1></FONT><BR><HR>");
+    out.print("<form method=\"post\" action=\"");
+    out.print(request.getRequestURI());
+    out.print("\" >");
+    out.println("<FONT COLOR=\"FFFFFF\"><H2>ユーザーの編集</H2></FONT><BR>");
+    out.println("<FONT COLOR=\"#BAFEC9\">編集するユーザー名:</FONT><BR>");
+    out.println("<SELECT NAME=\"UserName\" >");
+    try {
+          java.sql.Statement statement = conn.createStatement();
+          java.sql.ResultSet rs = statement.executeQuery("select ACCOUNT from USERINFO");
+          while (rs.next()) {
+          //選択メニューにアカウント名を追加
+          out.println("<OPTION>"+rs.getString("ACCOUNT"));
+          }
+          rs.close();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    out.println("</SELECT><BR>");
+    out.println("<input type=\"submit\" name=\"selected\" value=\"編集\"><BR><HR>");
+    out.println("<H2><FONT COLOR=\"#00FFFF\">ユーザーの新規作成</H2></FONT><BR>");
+    out.println("<FONT COLOR=\"#FFFFFF\">新規ユーザー名:"
+               +"<input type=\"text\" name=\"NewUserID\"></FONT><BR>");
+    out.println("<input type=\"submit\" name=\"selected\" value=\"新規\">");
+    writeFooter(out);
+    out.println("<BR><BR>");
+    out.println("</BODY></HTML>");
+  }
+
+  //ユーザー追加のフォーム作成
+  private void addUserForm(HttpServletRequest request, PrintWriter out,
+       String newAccount) {
+    out.println("<H1><FONT COLOR=\"#00FFFF\">"
+        +"<CENTER>Firebird Scheduler ユーザー追加画面</CENTER></FONT>"
+        +"</FONT></H1><HR>");
+    //入力されているアカウントが使用されているかをチェック
+    if (checkUserID(newAccount)==0) {
+       //新規追加画面の生成
+       out.print("<form method=\"post\" action=\"./addnewuser\">");
+       out.println("<H2><FONT COLOR=\"#FFFFFF\"[新規アカウント追加:"
+                   +newAccount.trim()+"]</H2><BR>");
+       out.println("<input type=\"hidden\" name=\"ACCOUNT\" value=\""
+          +newAccount.trim()+"\">");
+       out.println("<FONT COLOR=\"#BAFEC9\">ユーザー名:</FONT>"
+          +"<input type=\"text\" name=\"FULLNAME\" ><BR>");
+       out.println("<FONT COLOR=\"#BAFEC9\">フリガナ  :</FONT>"
+          +"<input type=\"text\" name=\"FURIGANA\" ><BR>");
+       out.println("<FONT COLOR=\"#BAFEC9\">パスワード:</FONT>"
+          +"<input type=\"password\" name=\"PASSWORD\" ><BR>");
+       out.println("<FONT COLOR=\"#BAFEC9\">内線番号  :</FONT>"
+          +"<input type=\"text\" name=\"TEL_NO\" ><BR>");
+       //部署名の挿入
+       setDivision(out);
+       //登録ボタン
+       out.println("<BR><input type=\"submit\" name=\"register\" value=\"登  録\">");
+    } else {
+      if (newAccount.length()==0) {
+         //ユーザー名が入力されていないとき
+         out.println("<H2><CENTER><FONT COLOR=\"RED\">ユーザー名が入力されませんでした"
+            +"</CENTER></FONT></H2><BR><BR>");
+      } else {
+         //すでに使われているユーザーのとき
+         out.println("<H2><CENTER><FONT COLOR=\"RED\">入力されたユーザー名はすでに"
+           +"使用されています</CENTER></FONT></H2><BR><BR>");
+      }
+     	out.println("<div align=right>");
+      out.println("<A HREF=\"./loginform\">"
+                 +"<IMG SRC=\"images/B03E13.GIF\"></A><HR>");
+   	  out.println("<p><i><font color=\"#99FF99\">"
+                 +"copyright(c)2002 Daiju Kato</font></i></div>");
+    }
+  }
+
+  //ユーザー編集フォームの作成
+  private void editUserForm(HttpServletRequest request, PrintWriter out,
+       String UserName) {
+    Hashtable userInfo = new Hashtable();
+    out.println("<H1><FONT COLOR=\"#00FFFF\">"
+        +"<CENTER>Firebird Scheduler ユーザー情報編集画面</CENTER>"
+        +"</FONT></H1><HR>");
+    //編集画面の生成
+    out.print("<form method=\"post\" action=\"./edituser\">");
+    //ユーザー情報の取得
+    userInfo=getUserInfo(UserName);
+    out.println("<H2><FONT COLOR=\"#FFFFFF\">"
+       +"[アカウント名："+UserName.trim()+"]</H2></FONT><BR>");
+    out.println("<input type=\"hidden\" name=\"ACCOUNT\" value=\""
+       +UserName.trim()+"\">");
+    out.println("<FONT COLOR=\"#BAFEC9\">ユーザー名:</FONT>"
+       +"<input type=\"text\" name=\"FULLNAME\" value=\""
+        +userInfo.get("FULLNAME")+"\"><BR>");
+    out.println("<FONT COLOR=\"#BAFEC9\">フリガナ  :</FONT>"
+        +"<input type=\"text\" name=\"FURIGANA\" value=\""
+        +userInfo.get("FURIGANA")+"\"><BR>");
+    out.println("<FONT COLOR=\"#BAFEC9\">パスワード:</FONT>"
+        +"<input type=\"password\" name=\"PASSWORD\" value=\""
+        +userInfo.get("PASSWORDS")+"\"><BR>");
+    out.println("<FONT COLOR=\"#BAFEC9\">内線番号  :</FONT>"
+        +"<input type=\"text\" name=\"TEL_NO\" value=\""
+        +userInfo.get("TEL_NO")+"\"><BR>");
+    //部署名の挿入
+    setDivision(out);
+    //登録ボタン
+    out.println("<BR><input type=\"submit\" name=\"register\" value=\"変  更\">");
+  }
+
+  //新規ユーザー名かを判断
+  private int checkUserID(String newAccount) {
+     try {
+            java.sql.Statement statement = conn.createStatement();
+            java.sql.ResultSet rs = statement.executeQuery(
+               "select COUNT(ACCOUNT) from USERINFO WHERE ACCOUNT=\""
+                   +newAccount.trim()+"\"");
+            rs.next();
+            int isExist = rs.getInt("COUNT");
+            rs.close();
+            return isExist;
+     } catch (Exception e) {
+           e.printStackTrace();
+       return -1;
+     }
+  }
+
+  //部署名の取得および選択メニューの作成
+  private void setDivision(PrintWriter out) {
+     try {
+            java.sql.Statement statement = conn.createStatement();
+            //部署の数を取得
+            java.sql.ResultSet rs = statement.executeQuery(
+               "select COUNT(DIVISION) from DIVISION");
+            rs.next();
+            int count = rs.getInt("COUNT");
+            rs.close();
+            //部署を入れる配列を作成
+            out.println("<FONT COLOR=\"#BAFEC9\">部      署:</FONT>"
+            +"<SELECT NAME=\"DIVISION\">");
+            //部署のデータ配列に挿入
+            rs = statement.executeQuery(
+               "select  DIVISION from DIVISION");
+            while (rs.next()) {
+              out.println("<OPTION>"+rs.getString("DIVISION"));
+            }
+            rs.close();
+     } catch (Exception e) {
+           e.printStackTrace();
+     }
+     out.println("</SELECT></BR>");
+  }
+
+  //ユーザー情報の取得
+  private Hashtable getUserInfo(String account) {
+     Hashtable userInfo = new Hashtable();
+     try {
+            java.sql.Statement statement = conn.createStatement();
+            java.sql.ResultSet rs = statement.executeQuery(
+               "select * from USERINFO WHERE ACCOUNT=\""
+                   +account.trim()+"\"");
+            rs.next();
+            userInfo.put("ACCOUNT",account);
+            userInfo.put("FULLNAME",rs.getString("FULLNAME"));
+            userInfo.put("FURIGANA",rs.getString("FURIGANA"));
+            userInfo.put("PASSWORDS",rs.getString("PASSWORDS"));
+            userInfo.put("TEL_NO",rs.getString("TEL_NO"));
+            userInfo.put("DIVISION_NO",rs.getString("FURIGANA"));
+            rs.close();
+     } catch (Exception e) {
+       e.printStackTrace();
+     }
+     return userInfo;
+  }
+
+  //フッター情報
+  private void writeFooter(PrintWriter out) {
+   	out.println("<div align=right>");
+    out.println("<A HREF=\"./loginform\">"
+               +"<IMG SRC=\"images/B03E13.GIF\"></A><HR>");
+    out.println("<p><i><font color=\"#99FF99\">"
+               +"copyright(c) 2002 Daiju Kato</font></i></div>");
+  }
+
+  public userRegisterClass() {
+  }
+}
+
+
+ソース11-6-7.新規ユーザーの追加を実行するaddNewUserクラス
+/*------------------------------------------------------------
+   Firebird Scheduler
+   ファイル: addNewUser.java
+   内容:新規ユーザーの追加
+   copyright(c) 2002 Daiju Kato
+--------------------------------------------------------------*/
+package fbschedule;
+
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.io.*;
+import java.util.*;
+import java.sql.*;
+
+public class addNewUser extends HttpServlet {
+  private Connection conn;
+  //グローバル変数の初期化
+
+  public void init(ServletConfig config) throws ServletException {
+    super.init(config);
+  }
+
+
+//HTTP Post リクエストの処理
+  public void doPost(HttpServletRequest request, HttpServletResponse response)
+       throws ServletException, IOException {
+    response.setContentType("text/html;charset=sjis");
+    Hashtable userInfo = getParameters(request);
+    PrintWriter out = new PrintWriter(
+      new OutputStreamWriter(response.getOutputStream(), "SJIS"));
+    out.println("<html>");
+    out.println("<head><title>ユーザー登録</title></head>");
+  	out.println("<body background=\"images/BCG_006.GIF\">");
+    try {
+         //データベースへの接続
+        Database dbFBSchedule = new Database();
+        conn = dbFBSchedule.getConnection();
+        registerUsers(userInfo, out);
+        //データベースから切断
+        dbFBSchedule.releaseConnection();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    writeFooter(out);
+    out.println("</body></html>");
+    out.close();
+  }
+
+  //ユーザー登録の実行
+  public void registerUsers(Hashtable userInfo, PrintWriter out) {
+    String sql;
+    try {
+          //sql文の作成
+          sql = "INSERT INTO USERINFO (ACCOUNT, FULLNAME, FURIGANA, "
+              +"PASSWORDS, TEL_NO, DIVISION_NO ) VALUES (\""
+              +userInfo.get("ACCOUNT")+"\",\""
+              +userInfo.get("FULLNAME")+"\",\""
+              +userInfo.get("FURIGANA")+"\",\""
+              +userInfo.get("PASSWORD")+"\",\""
+              +userInfo.get("TEL_NO")+"\","
+              +getDivisionNo((String)userInfo.get("DIVISION"))+")";
+          //for Debug -- 生成したSQLの表示
+          //out.println("SQL:"+sql+"<BR>");
+          //end Debug
+          java.sql.Statement statement = conn.createStatement();
+          //SQL文の実行
+          statement.executeUpdate(sql);
+          //追加情報の表示
+          out.println("<H2><CENTER><FONT COLOR=\"#00FFFF\">ユーザー追加完了"
+             +"</CENTER></FONT></H2><HR>");
+          out.println("<FONT COLOR=\"#FFFFFF\"><H3>次のユーザーを追加しました。</H3>"
+             +"<BR><B></FONT><UL>");
+          out.println("<FONT COLOR=\"#BAFEC9\"><LI>アカウント名:</FONT>"
+                        +"<FONT COLOR=\"white\">"+userInfo.get("ACCOUNT")+"</FONT><BR>");
+          out.println("<FONT COLOR=\"#BAFEC9\"><LI>名        前:</FONT>"
+                        +"<FONT COLOR=\"white\">"+userInfo.get("FULLNAME")+"</FONT><BR>");
+          out.println("<FONT COLOR=\"#BAFEC9\"><LI>フ リ ガ ナ :</FONT>"
+                        +"<FONT COLOR=\"white\">"+userInfo.get("FURIGANA")+"</FONT><BR>");
+          out.println("<FONT COLOR=\"#BAFEC9\"><LI>内 線 番 号 :</FONT>"
+                        +"<FONT COLOR=\"white\">"+userInfo.get("TEL_NO")+"</FONT><BR>");
+          out.println("<FONT COLOR=\"#BAFEC9\"><LI>部       署 :</FONT>"
+                        +"<FONT COLOR=\"white\">"+userInfo.get("DIVISION")
+                        +"</FONT><BR></B></UL>");
+    } catch (Exception e) {
+      out.println("<H2><CETNER><FONT COLOR=\"RED\">登録に失敗しました"
+         +"</FONT></CENTER></H2><BR>");
+    }
+  }
+
+  //パラメータの取得
+  private Hashtable getParameters(HttpServletRequest request)
+    throws IOException {
+
+    Hashtable data = new Hashtable();
+    Enumeration e = request.getParameterNames();
+    while (e.hasMoreElements()) {
+      String key = (String)e.nextElement();
+      String[] values = request.getParameterValues(key);
+      for (int i=0; i<values.length;i++) {
+          data.put(key, new String(
+              values[i].getBytes("8859_1"),"SJIS"));
+      }
+    }
+    return data;
+  }
+
+  //フッター情報
+  private void writeFooter(PrintWriter out) {
+    out.println("<div align=right>");
+    out.println("<A HREF=\"./loginform\">"
+              +"<IMG SRC=\"images/B03E13.GIF\"></A><HR>");
+    out.println("<p><i><font color=\"#99FF99\">"
+              +"copyright(c) 2002 Daiju Kato</font></i></div>");
+  }
+
+  //部署番号の取得
+  private int getDivisionNo(String division) {
+     int division_no=-1;
+     try {
+          java.sql.Statement statement = conn.createStatement();
+          java.sql.ResultSet rs = statement.executeQuery(
+              "select DIVISION_NO from DIVISION WHERE DIVISION=\""
+              +division.trim()+"\"");
+          rs.next();
+          division_no = rs.getInt("DIVISION_NO");
+          rs.close();
+     } catch (Exception e) {
+     }
+     return division_no;
+  }
+
+
+  public addNewUser() {
+  }
+
+}
+
+ソース11-6-8.既存ユーザー情報の変更を実行するeditUserクラス
+/*------------------------------------------------------------
+   Firebird Scheduler
+   ファイル: editUser.java
+   内容:既存ユーザーの編集
+   copyright(c) 2002 Daiju Kato
+--------------------------------------------------------------*/
+package fbschedule;
+
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.io.*;
+import java.util.*;
+import java.sql.*;
+
+public class editUser extends HttpServlet {
+
+  private Connection conn;
+
+  public void init(ServletConfig config) throws ServletException {
+    super.init(config);
+  }
+//HTTP Post リクエストの処理
+
+  public void doPost(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
+    response.setContentType("text/html;charset=sjis");
+    Hashtable userInfo = getParameters(request);
+    PrintWriter out = new PrintWriter(
+      new OutputStreamWriter(response.getOutputStream(), "SJIS"));
+    out.println("<html>");
+    out.println("<head><title>ユーザー登録</title></head>");
+  	out.println("<body background=\"images/BCG_006.GIF\">");
+    try {
+          //データベースに接続
+          Database dbFBSchedule = new Database();
+          conn = dbFBSchedule.getConnection();
+          registerUsers(userInfo, out);
+          //データベースから切断
+          dbFBSchedule.releaseConnection();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    writeFooter(out);
+    out.println("</body></html>");
+    out.close();
+  }
+
+  //ユーザー登録の実行
+  public void registerUsers(Hashtable userInfo, PrintWriter out) {
+    String sql;
+    try {
+          //SQL文の生成
+          sql = "UPDATE USERINFO SET FULLNAME = \""
+              +userInfo.get("FULLNAME")+"\",FURIGANA = \""
+              +userInfo.get("FURIGANA")+"\",PASSWORDS = \""
+              +userInfo.get("PASSWORD")+"\",TEL_NO = \""
+              +userInfo.get("TEL_NO")+"\", DIVISION_NO = "
+              +getDivisionNo((String)userInfo.get("DIVISION"))
+              +" WHERE ACCOUNT = \""+userInfo.get("ACCOUNT")+"\"";
+          java.sql.Statement statement = conn.createStatement();
+          //SQL文の実行
+          statement.executeUpdate(sql);
+          //変更情報の表示
+          out.println("<H2><CENTER><FONT COLOR=\"#00FFFF\">ユーザー情報変更完了"
+             +"</CENTER></FONT></H2><HR>");
+          out.println("<FONT COLOR=\"white\"><H3>次のユーザー情報を更新しました。"
+             +"</H3></FONT><BR><B><UL>");
+          out.println("<FONT COLOR=\"#BAFEC9\"><LI>アカウント名:</FONT>"
+                        +"<FONT COLOR=\"white\">"+userInfo.get("ACCOUNT")+"</FONT><BR>");
+          out.println("<FONT COLOR=\"#BAFEC9\"><LI>名        前:</FONT>"
+                        +"<FONT COLOR=\"white\">"+userInfo.get("FULLNAME")+"</FONT><BR>");
+          out.println("<FONT COLOR=\"#BAFEC9\"><LI>フ リ ガ ナ :</FONT>"
+                        +"<FONT COLOR=\"white\">"+userInfo.get("FURIGANA")+"</FONT><BR>");
+          out.println("<FONT COLOR=\"#BAFEC9\"><LI>内 線 番 号 :</FONT>"
+                        +"<FONT COLOR=\"white\">"+userInfo.get("TEL_NO")+"</FONT><BR>");
+          out.println("<FONT COLOR=\"#BAFEC9\"><LI>部       署 :</FONT>"
+                        +"<FONT COLOR=\"white\">"+userInfo.get("DIVISION")
+                        +"</FONT><BR></B></UL>");
+    } catch (Exception e) {
+      out.println("<H2><CETNER><FONT COLOR=\"RED\">登録に失敗しました"
+         +"</FONT></CENTER></H2><BR>");
+    }
+  }
+
+  //パラメータの取得
+  private Hashtable getParameters(HttpServletRequest request)
+    throws IOException {
+
+    Hashtable data = new Hashtable();
+    Enumeration e = request.getParameterNames();
+    while (e.hasMoreElements()) {
+      String key = (String)e.nextElement();
+      String[] values = request.getParameterValues(key);
+      for (int i=0; i<values.length;i++) {
+          data.put(key, new String(
+              values[i].getBytes("8859_1"),"SJIS"));
+      }
+    }
+    return data;
+  }
+
+  //フッター情報
+  private void writeFooter(PrintWriter out) {
+    out.println("<div align=right>");
+    out.println("<A HREF=\"./loginform\">"
+              +"<IMG SRC=\"images/B03E13.GIF\"></A><HR>");
+    out.println("<p><i><font color=\"#99FF99\">"
+              +"copyright(c) 2002 Daiju Kato</font></i></div>");
+  }
+
+  //部署番号の取得
+  private int getDivisionNo(String division) {
+     int division_no=-1;
+     try {
+          java.sql.Statement statement = conn.createStatement();
+          java.sql.ResultSet rs = statement.executeQuery(
+              "select DIVISION_NO from DIVISION WHERE DIVISION=\""
+              +division.trim()+"\"");
+          rs.next();
+          division_no = rs.getInt("DIVISION_NO");
+          rs.close();
+     } catch (Exception e) {
+     }
+     return division_no;
+  }
+
+  public editUser() {
+  }
+
+}
+
