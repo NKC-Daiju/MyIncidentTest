@@ -1,0 +1,21 @@
+3-4. FreeBSDへのインストール
+
+InterBaseにはFreeBSD版は存在しませんが、FirebirdにはFreeBSD 4.3およびFreeBSD 4.4に対応したビルドがリリースされています。ただし、提供されているのはClassic版のみとなります。ここではFreeBSD 4.4へのFirebirdの導入方法について説明しましょう。
+FreeBSD 4.4対応のFirebirdのビルドであるfirebird-1.0_44.tgz（本紙付属のCD-ROMに同梱）はFreeBSDのpakeagesとしてpkg_addコマンドでインストールすることができます。また、削除もpkg_deleteコマンドで行うことができます。pkg_addコマンドにてFirebirdパッケージが追加されるとFirebirdというユーザーが追加され、Firebirdのファイルの所有者はすべてFirebirdユーザーになっています。
+
+	Firebirdパッケージの追加
+	# pkg_add firebird-1.0_44.tgz
+	Firebirdの削除
+    # pkg_delete firebird-1.0
+
+図3-4-1.Firebirdがインストールされたところ
+(fig3-4-1.bmp)
+
+インストールが完了したら、gsecを使ってデフォルトのSYSDBAのパスワードの変更を行いましょう。
+
+	# /usr/interbase/bin/gsec -USER SYSDBA -PASS masterkey
+	gsec> modify SYSDBA -pw newpassword
+	gsec> quit
+
+FreeBSD環境ではIBConsoleは使用できませんので、コマンドラインツールを使用して設定や処理を行う必要があります。また、InterClientのFreeBSD版は存在しませんので、Javaからの利用はできません。
+

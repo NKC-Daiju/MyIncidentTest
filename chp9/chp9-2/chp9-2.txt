@@ -1,0 +1,425 @@
+9-2.Kylixでの利用
+
+9-1では、DelphiでInterBase Expressを使用しましたが、Delphi 6からは軽量なdbExpressを使用してFirebirdと接続することができます。また、dbExpressはKylixでもサポートされているため、Windowsで作成したソースコードをKylixで再利用することができます。それでは、簡単にdbExpressを使ってFirebirdに接続してみましょう。
+
+図9-2-1はdbExpressで用意されているコンポーネントです。各コンポーネントの説明は表9-2-1のようになります。これらのコンポーネントを組み合わせて使用することで、KylixからdbExpress経由でFirebirdに接続し、データ処理を行うことができます。
+
+図9-2-1.dbExpressのコンポーネント
+(fig9-2-1.bmp)
+
+表9-2-1.dbExpressコンポーネントの説明
+(table.xls内の表9-2-1)
+
+実際に、SQLファイル文を使用してデータ操作を行う前に、サンプルで使用するスキーマを作成しておきましょう。簡単なサンプルプログラムで使用するだけですのでITEMSテーブルを一つ作成し、ITEMNOを自動的に連番してくれるジェネレータとトリガーを用意します。スキーマを作成するSQLファイルはリスト9-2-1のようになります。
+
+リスト9-2-1.SQLファイル(dbExpressDemo.sql)
+/*********************************************************************/
+/*           dbExpressのデモ用ISQLスクリプト                         */
+/*                                                                   */
+/*                                                                   */
+/* File:dbExpressDemo.SQL                                            */
+/* Authur:Daiju Kato                                                 */
+/*                                                                   */
+/* Usage:ISQL -I dbExpressDemo.SQL -U SYSDBA  -P masterkey           */
+/*                                                                   */
+/*********************************************************************/
+
+/****************************************/
+/*        データベースの作成            */
+/****************************************/
+CREATE DATABASE "/data/kylixdemo.gdb" 
+ USER "SYSDBA" PASSWORD "masterkey"
+ PAGE_SIZE 8192 DEFAULT CHARACTER SET EUCJ_0208;
+
+SET NAMES EUCJ_0208;
+CONNECT "/data/kylixdemo.gdb" User "SYSDBA" Password "masterkey";
+
+/****************************************/
+/*        テーブルの作成                */
+/****************************************/
+CREATE TABLE ITEMS 
+(
+  ITEMNO	CHAR(5) NOT NULL Primary Key,
+  ITEMNAME	VARCHAR(50) NOT NULL,
+  PRICE	    INTEGER
+);
+
+COMMIT;
+/****************************************/
+/*      ジェネレータの作成              */
+/****************************************/
+CREATE GENERATOR GEN_ITEMNO;
+SET GENERATOR GEN_ITEMNO TO 10000;
+
+COMMIT;
+/****************************************/
+/*      トリガーの作成                  */
+/****************************************/
+SET TERM !! ;
+CREATE TRIGGER SET_ITEMNO FOR ITEMS 
+ BEFORE INSERT
+AS BEGIN
+  new.itemno=gen_id(gen_itemno,1);
+END !!
+SET TERM ; !!
+
+COMMIT;
+
+
+スキーマの作成が終了しましたのでまずはITEMSテーブルのデータ処理を行うプログラムを作成してみましょう。作成するプログラムで行うデータ処理は次のようになります。
+
+	・INSERT文でのデータの追加
+	・UPDATE文でのデータの更新
+	・DELETE文でのデータの削除
+	・先頭データへの移動
+	・末尾データへの移動
+	・次のデータへの移動
+
+Kylixを起動して、[ファイル]-[新規アプリケーション]を選択します。フォーム上に、TSQLConnectionコンポーネントとTSQLQueryコンポーネントを配置します。Firebirdとの接続のため、SQLConnection1コンポーネントのConnectionNameプロパティの値をIBConnectionに設定します。Paramsプロパティを選択し、次の値を設定します。
+
+	Paramsプロパティの内容
+		DriverName=Interbase
+		Database=/data/kylixdemo.gdb
+		User_Name=sysdba
+		Password=masterkey
+		ServerCharSet=EUCJ_0208
+
+パスワードを設定しているため、LoginPromptプロパティをFalseに変更し、接続にログインダイアログが表示されないようにします。起動時にデータベースへの接続を行うため、Formの生成時に、SQLConnction1オブジェクトをオープンします。
+続いて、SQLQuery1のSQLプロパティに"SELECT * FROM ITEMS"というSQLファイル文をセットします。これで、ITEMSテーブルのデータを取得することができました。
+追加・削除・編集の処理を行うためにボタンを配置し、それぞれのOnClickイベントにてSQLファイル文によるデータ処理を行います。また、明示的にTSQLConnectionクラスのStartTransactionメソッドを呼び出して、トランザクションを実施し、SQL文にてデータ処理を行い、コミット処理を行います。エラーが発生したときはロールバック処理を実施します。トランザクション処理では表9-2-2のようなアイソレーションレベルを使用することができます。dbExpressによってカプセル化されているため、実際のデータ処理は特にデータベースの違いはほとんどありません。リスト7-2-2に作成したsimpleForm1.pasのソースがありますので、コメントを参照にどのような順序でデータ処理を行っているか確認してみるといいでしょう。
+
+表9-2-2.アイソレーションレベル
+（table.xls内の表9-2-2)
+
+
+リスト9-2-2.simpleform1.pas
+unit simpleform1;
+
+interface
+
+uses
+  SysUtils, Types, Classes, Variants, QGraphics, QControls, QForms, QDialogs,
+  QStdCtrls, QButtons, QExtCtrls, DBXpress, FMTBcd, DB, SqlExpr;
+
+type
+  TForm1 = class(TForm)
+    Panel1: TPanel;
+    BitBtn1: TBitBtn;
+    addBtn: TButton;
+    ItemNoEdit: TEdit;
+    Label1: TLabel;
+    Label2: TLabel;
+    Label3: TLabel;
+    ItemNameEdit: TEdit;
+    ItemPriceEdit: TEdit;
+    SQLConnection1: TSQLConnection;
+    SQLQuery1: TSQLQuery;
+    firstBtn: TButton;
+    lastBtn: TButton;
+    nextBtn: TButton;
+    EditBtn: TButton;
+    DelBtn: TButton;
+    procedure addBtnClick(Sender: TObject);
+    procedure firstBtnClick(Sender: TObject);
+    procedure lastBtnClick(Sender: TObject);
+    procedure nextBtnClick(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure EditBtnClick(Sender: TObject);
+    procedure DelBtnClick(Sender: TObject);
+  private
+    { Private 宣言 }
+  public
+    { Public 宣言 }
+  end;
+
+var
+  Form1: TForm1;
+
+implementation
+
+{$R *.xfm}
+
+//追加ボタンの処理
+procedure TForm1.addBtnClick(Sender: TObject);
+var sql:String;
+    TD:TTransactionDesc;
+begin
+   //データ追加のSQL文
+   sql := 'INSERT INTO ITEMS '
+       + '( ITEMNAME, PRICE )'
+       + ' VALUES '
+       + '("'+ItemNameEdit.text+'","'
+       + ItemPriceEdit.Text+'")';
+   SQLQuery1.SQL.clear;
+   SQLQuery1.SQL.Add(sql);
+   try
+      //トランザクションの設定
+      TD.TransactionID:=1;
+      TD.IsolationLevel:=xilREADCOMMITTED;
+      SQLConnection1.StartTransaction(TD);
+      //データ追加
+      SQLQuery1.ExecSQL();
+      //コミット処理
+      SQLConnection1.Commit(TD);
+   except
+      on E:Exception do
+      begin
+         //エラーが発生したときはロールバックする
+         SQLConnection1.Rollback(TD);
+         showmessage(E.Message);
+      end;
+   end;
+
+end;
+
+//先頭データへの移動
+procedure TForm1.firstBtnClick(Sender: TObject);
+begin
+  with SQLQuery1 do
+  begin
+    close;
+    sql.Clear;
+    sql.Add('select * from items');
+    try
+       open;
+       //先頭行へ移動
+       first;
+       ItemNoEdit.Text:=FieldByName('ITEMNO').AsString;
+       ItemNameEdit.Text:=FieldByName('ITEMNAME').AsString;
+       ItemPriceEdit.Text:=FieldByName('PRICE').asString;
+    except
+      on E:Exception do
+      begin
+        ShowMessage(E.Message);
+      end;
+    end;
+  end;
+    NextBtn.Enabled:=True;
+    LastBtn.Enabled:=True;
+end;
+
+procedure TForm1.lastBtnClick(Sender: TObject);
+begin
+  with SQLQuery1 do
+  begin
+    close;
+    sql.Clear;
+    //降順にして最終行を先頭とする
+    sql.Add('select * from items order by itemno desc');
+    try
+       //末尾データの表示
+       open;
+       ItemNoEdit.Text:=FieldByName('ITEMNO').AsString;
+       ItemNameEdit.Text:=FieldByName('ITEMNAME').AsString;
+       ItemPriceEdit.Text:=FieldByName('PRICE').asString;
+    except
+       on E:Exception do
+       begin
+         ShowMessage(E.message);
+       end;
+    end;
+  end;
+  lastBtn.Enabled:=True;
+  FirstBtn.Enabled:=True;
+end;
+
+//次データ
+procedure TForm1.nextBtnClick(Sender: TObject);
+begin
+  if not (SQLQuery1.Eof) then
+  begin
+    with SQLQuery1 do
+    begin
+    next;
+    ItemNoEdit.Text:=FieldByName('ITEMNO').AsString;
+    ItemNameEdit.Text:=FieldByName('ITEMNAME').AsString;
+    ItemPriceEdit.Text:=FieldByName('PRICE').asString;
+    end;
+  end
+  else begin
+     LastBtn.Enabled:=False;
+  end;
+end;
+
+//フォームの生成
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+  FirstBtn.Click;
+end;
+
+//データの更新
+procedure TForm1.EditBtnClick(Sender: TObject);
+var sql, curNo:String;
+    TD:TTransactionDesc;
+begin
+   curNo:=ItemNoEdit.Text;
+   //更新用のSQLファイル文の作成
+   sql := 'UPDATE ITEMS '
+       + 'SET ITEMNAME="'
+       + ItemNameEdit.text+'",Price='
+       + ItemPriceEdit.text
+       + 'Where ItemNo="'+curNo+'"';
+   SQLQuery1.Close;
+   SQLQuery1.SQL.clear;
+   SQLQuery1.SQL.Add(sql);
+   //トランザクションの準備
+   TD.TransactionID:=1;
+   TD.IsolationLevel:=xilREADCOMMITTED;
+   try
+      //トランザクションの開始
+      SQLConnection1.StartTransaction(TD);
+      //更新処理の実施
+      SQLQuery1.ExecSQL();
+      //コミット処理
+      SQLConnection1.Commit(TD);
+   except
+      on E:Exception do
+      begin
+        //エラーが発生したときはロールバック
+        ShowMessage(E.Message);
+        SQLConnection1.Rollback(TD);
+      end;
+   end;
+   FirstBtn.Click;
+end;
+
+//削除処理
+procedure TForm1.DelBtnClick(Sender: TObject);
+var curNo,str:String;
+    TD:TTransactionDesc;
+begin
+  curNo:=trim(ItemNoEdit.Text);
+  //削除用のSQL文の作成
+  str := 'DELETE FROM ITEMS WHERE '
+       + 'ITEMNO = "'+curNO+'"';
+  with SQLQuery1 do
+  begin
+    close;
+    sql.clear;
+    sql.add(str);
+    //トランザクション処理の準備
+    TD.TransactionID:=1;
+    TD.IsolationLevel:=xilREADCOMMITTED;
+    try
+      //トランザクションの開始
+      SQLConnection1.StartTransaction(TD);
+      //削除の実施
+      ExecSQL();
+      //コミット処理
+      SQLConnection1.commit(TD);
+    except
+      on E:Exception do
+      begin
+         //エラーが発生したときはロールバック
+         ShowMessage(E.Message);
+         SQLConnection1.Rollback(TD);
+      end;
+    end;
+    FirstBtn.Click;
+  end;
+end;
+
+end.
+
+
+図9-2-2.設計画面
+(fig9-2-2.bmp)
+
+図9-2-3.実行したところ
+(fig9-2-3.bmp)
+
+
+続いて、ストアドプロシージャを呼び出すプログラムを作成してみましょう。今回のプログラムではFirebirdのEMPLOYEEデータベース内のSUB_TOT_BUDGETプロシージャを利用します。SUB_TOT_BUDGETプロシージャは次のようなパラメータを持つ実行プロシージャです。
+
+	SUB_TOT_BUDGETのパラメータ
+		HEAD_DEPT	入力パラメータ
+		TOT_BUDGET  出力パラメータ
+        AVG_BUDGET  出力パラメータ
+        MIN_BUDGET  出力パラメータ
+        MAX_BUDGET  出力パラメータ
+
+dbExpressでFirebirdの実行プロシージャを呼び出すにはTStoredProcコンポーネントを使用します。選択プロシージャの場合は、先ほど使用したTSQLQueryコンポーネントを使用することもできます。
+では、SUB_TOT_BUDGETプロシージャを呼び出す簡単なプログラムを作成してみましょう。フォーム上に、TSQLCOnnectionコンポーネントとTStoredProcコンポーネントを配置します。TSQLConnectionプロパティのparamsプロパティでFirebirdのサンプルデータベースであるEMPLOYEEデータベースを指定します。続いて、StoredProc1オブジェクトのStoredProcNameでSUB_TOT_BUDGETプロシージャを選択します。パラメータの種類は、図9-2-4のパラメータダイアログで確認することができます。
+
+
+図9-2-4.パラメータの確認
+(fig9-2-4.bmp)
+
+
+今回のプログラムでは入力パラメータであるHEAD_DEPTの値をコンボボックスから選択するようにしています。また、図9-2-5のように、プロシージャを実行するボタンを配置し、出力パラメータを表示するエディットボックスをフォーム上に配置します。プロシージャの入力パラメータはparamsプロパティにセットします。同様に出力パラメータもparamsプロパティから取得することができます。リスト9-2-3のソースコードを参照してどのように呼び出しているか確認してみてください。
+
+
+図9-2-5.デザイン画面
+(fig9-2-5.bmp)
+
+図9-2-6.実行したところ
+(fig9-2-6.bmp)
+
+
+リスト9-2-3.procSample1.pas
+unit procSample1;
+
+interface
+
+uses
+  SysUtils, Types, Classes, Variants, QGraphics, QControls, QForms, QDialogs,
+  DBXpress, FMTBcd, QButtons, QStdCtrls, DB, SqlExpr;
+
+type
+  TForm1 = class(TForm)
+    SQLConnection1: TSQLConnection;
+    SQLStoredProc1: TSQLStoredProc;
+    ComboBox1: TComboBox;
+    execBtn: TButton;
+    GroupBox1: TGroupBox;
+    TOT_BUDGETEdit: TEdit;
+    Label1: TLabel;
+    Label2: TLabel;
+    AVG_BUDGETEdit: TEdit;
+    Label3: TLabel;
+    MIN_BUDGETEdit: TEdit;
+    Label4: TLabel;
+    MAX_BUDGETEdit: TEdit;
+    BitBtn1: TBitBtn;
+    procedure execBtnClick(Sender: TObject);
+  private
+    { Private 宣言 }
+  public
+    { Public 宣言 }
+  end;
+
+var
+  Form1: TForm1;
+
+implementation
+
+{$R *.xfm}
+
+procedure TForm1.execBtnClick(Sender: TObject);
+begin
+  with SQLStoredProc1 do
+  begin
+    //入力パラメータの設定
+    Params.ParamByName('HEAD_DEPT').AsString
+       :=ComboBox1.text;
+    try
+      //プロシージャの実行
+      ExecProc;
+      //出力パラメータの取得・表示
+      TOT_BUDGETEdit.Text:=paramByName('TOT_BUDGET').AsString;
+      AVG_BUDGETEdit.Text:=paramByName('AVG_BUDGET').AsString;
+      MIN_BUDGETEdit.Text:=paramByName('MIN_BUDGET').AsString;
+      MAX_BUDGETEdit.Text:=paramByName('MAX_BUDGET').AsString;
+    except on E:Exception do
+      begin
+         ShowMessage(E.Message);
+      end;
+    end;
+  end;
+end;
+
+end.
+
+
+dbExpressはKylixだけでなく、Delphiでも使用できるコンポーネントです。BDEやInterBase Expressを利用した場合と異なり単一方向のデータセットとなります。TTableやTQueryとDBEditやDBGridの組み合わせを使い慣れている人は少し違和感がありますが、非常に軽いコンポーネントであるため、パフォーマンスに優れたデータ処理を行うことができます。DelphiやKylixでデータ操作を行うときは是非利用されるといいでしょう。
+

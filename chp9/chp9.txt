@@ -1,0 +1,613 @@
+第9章 Delphiからの利用
+
+ボーランド社のDelphiからFirebirdを利用する場合は、次の接続方法がサポートされています。
+
+	・BDE + SQL-Link for InterBaseからの接続
+	・BDE + ODBCからの接続
+	・InterBase Expressによる接続(Delphi Version 5以降）
+
+ボーランド社は正式にFirebirdとの接続をサポートしていないため、利用する場合は本人のリスクとなりますが、すでに説明したようにFirebirdはInterBase Version 6と完全互換であるため、まったく問題なく利用することができます。また、Delphi Version 5以降にはIBExpressを利用したサンプルが入っているだけでなく、InterBase Version 6およびFirebirdにてサポートされたインストールAPIやサーバー管理を実現できるAPIなどを利用したサンプルが納められています（Delphi Version 6以降）。
+ここでは、InterBase Expressを利用した例を説明していきましょう。
+
+
+9-1.InterBase Expressについて
+InterBase ExpressはInterBase APIを使って、FirebirdやInterBaseに接続できるコンポーネントです。他のミドルウェアを使うよりもダイレクトにAPIを呼び出しているので、Firebirdの提供している様々な機能を利用できるだけでなく、直接APIを呼び出すことになるので非常にパフォーマンス的にも優れています。
+InterBase ExpressはDelphiだけでなく、C++Builderからも利用することができます。InterBase Expressに用意されているコンポーネントは図9-1ｰ1のようなコンポーネントです。また、InterBase Version 6およびFirebirdからサポートされたインストールAPIやサーバー管理用のAPIを利用するためのコンポーネント（図9-1-2)も用意されています。各コンポーネントが提供している機能は、表9-1-1や表9-1-2のようになっています。
+これらのコンポーネントとDelphiで用意されているコンポーネントを利用することで、Firebirdとネイティブで接続するアプリケーションを作成することができます。
+
+図9-1-1.InterBase Express
+(fig9-1-1.bmp)
+
+図9-1-2.InterBase Express管理コンポーネント
+(fig9-1-2.bmp)
+
+表9-1-1.InterBase Expressで用意されているコンポーネント
+(table.xls内の表9-1-1)
+
+表9-1-2.InterBase Expressで用意されている管理用コンポーネント
+(table.xls内の表9-1-2)
+
+
+9-2.InterBase Expressの使い方
+それでは実際にInterBase Expressを使ってみましょう。ここでは顧客テーブル、商品テーブル、売上テーブルがあって顧客と商品と数量を選択すると、売上テーブルに格納されるという簡単なデモプログラムを作成してみましょう。
+まず、プログラムで使用するスキーマを作成します。顧客テーブル、商品テーブル、売上テーブルを作成し、顧客番号、商品番号、売上番号を設定するためのジェネレータおよびトリガーを設定します。また、顧客データおよび商品データを格納するSQLファイルを作成します。作成したファイルはリスト9-2-1となります。こちらのファイルをISQLで実行して、IBExpressDemo.gdbを作成します（ここではc:\data\ibexpress.gdb)。
+こちらのデータベースを使用してInterBase Expressを使用するプログラムを作成しましょう。
+
+リスト9-2-1.IBExpressDemo.sql
+/*********************************************************************/
+/*           InterBase Expressのデモ用ISQLスクリプト                 */
+/*                                                                   */
+/*                                                                   */
+/* File:IBExpressDemo.SQL                                            */
+/* Authur:Daiju Kato                                                 */
+/*                                                                   */
+/* Usage:ISQL -I IBExpressDemo.SQL -U SYSDBA  -P masterkey           */
+/*                                                                   */
+/*********************************************************************/
+
+/****************************************/
+/*        データベースの作成            */
+/****************************************/
+CREATE DATABASE 'C:\DATA\IBEXPRESSDEMO.GDB'
+    USER "SYSDBA" PASSWORD "masterkey"
+    PAGE_SIZE 8192 DEFAULT CHARACTER SET SJIS;
+
+SET NAMES SJIS;
+CONNECT 'C:\DATA\IBEXPRESSDEMO.GDB' User "SYSDBA" Password "masterkey";
+
+/****************************************/
+/*        テーブルの作成                */
+/****************************************/
+/*-------- 商品テーブル ----------------*/
+CREATE TABLE TBITEMS
+	(
+		FDITEMNO 		CHAR(5) CHARACTER SET ASCII
+			NOT NULL PRIMARY KEY,
+		FDITEMNAME 		VARCHAR(40) NOT NULL,
+		FDCATEGORY		CHAR(2) CHARACTER SET ASCII
+			NOT NULL,
+		FDSHIPDATE		DATE,
+		FDCOST			NUMERIC(10,0),
+		FDCOMMENT		VARCHAR(100)
+	);   
+
+CREATE INDEX ITEMNAME ON TBITEMS (FDITEMNAME);
+
+/*-------- 顧客テーブル --------------*/
+
+CREATE TABLE TBCUST
+	(
+		FDCUSTNO		CHAR(5) CHARACTER SET ASCII
+			NOT NULL PRIMARY KEY,
+		FDCUSTNAME		VARCHAR(20) NOT NULL,
+		FDADDRESS1		VARCHAR(80) NOT NULL,
+		FDADDRESS2		VARCHAR(80),
+		FDTEL			CHAR(13) CHARACTER SET ASCII,
+		FDFAX			CHAR(13) CHARACTER SET ASCII
+	);		
+
+/*-------- 売上テーブル ----------------*/
+
+CREATE TABLE TBSALES
+	(
+		FDSALESNO		CHAR(8) CHARACTER SET ASCII
+			NOT NULL	PRIMARY KEY,
+		FDCUSTNO		CHAR(5) CHARACTER SET ASCII NOT NULL,
+		FDITEMNO		CHAR(5) CHARACTER SET ASCII NOT NULL,
+		FDSALESNUM		NUMERIC(5,0)
+	);
+
+/****************************************/
+/*      ジェネレータの作成              */
+/****************************************/
+CREATE GENERATOR GEN_ITEMNO;
+SET GENERATOR GEN_ITEMNO TO 10000;
+
+CREATE GENERATOR GEN_CUSTNO;
+SET GENERATOR GEN_CUSTNO TO 10000;
+
+/*
+CREATE GENERATOR GEN_SALESNO;
+SET GENERATOR GEN_SALESNO TO 10000000;
+*/
+/****************************************/
+/*      トリガーの作成                  */
+/****************************************/
+
+/*-------- 商品番号の設定 ---------------*/
+
+SET TERM !! ;
+CREATE TRIGGER SET_ITEMNO FOR TBITEMS
+BEFORE INSERT
+AS
+BEGIN
+	NEW.FDITEMNO=GEN_ID(GEN_ITEMNO,1);
+END !!
+SET TERM ;!!
+
+/*-------- 顧客番号の設定 ---------------*/
+SET TERM !! ;
+CREATE TRIGGER SET_CUSTNO FOR TBCUST
+BEFORE INSERT
+AS
+BEGIN
+	NEW.FDCUSTNO=GEN_ID(GEN_CUSTNO,1);
+END !!
+SET TERM ;!!
+
+
+/*-------- 売上番号の設定 ---------------*/
+SET TERM !! ;
+CREATE TRIGGER SET_SALESNO FOR TBSALES
+BEFORE INSERT
+AS
+BEGIN
+	NEW.FDSALESNO=GEN_ID(GEN_SALESNO,1);
+END !!
+SET TERM ;!!
+
+COMMIT;
+
+/****************************************/
+/*      サンプルデータの入力            */
+/****************************************/
+
+INSERT INTO TBITEMS
+	(FDITEMNAME, FDCATEGORY, FDSHIPDATE, FDCOST)
+VALUES
+	('チョコレート','01','04/01/1975',80);
+
+INSERT INTO TBITEMS
+	(FDITEMNAME, FDCATEGORY, FDSHIPDATE, FDCOST)
+VALUES
+	('キャラメル','01','04/11/1975',75);
+
+INSERT INTO TBITEMS
+	(FDITEMNAME, FDCATEGORY, FDSHIPDATE, FDCOST)
+VALUES
+	('キャンディ','01','06/01/1975',30);
+
+INSERT INTO TBITEMS
+	(FDITEMNAME, FDCATEGORY, FDSHIPDATE, FDCOST)
+VALUES
+	('ビスケット','01','04/12/1965',110);
+
+INSERT INTO TBITEMS
+	(FDITEMNAME, FDCATEGORY, FDSHIPDATE, FDCOST)
+VALUES
+	('ポテトチップス','01','11/11/1980',120);
+
+INSERT INTO TBITEMS
+	(FDITEMNAME, FDCATEGORY, FDSHIPDATE, FDCOST)
+VALUES
+	('ボールペン','02','08/02/1968',70);
+
+INSERT INTO TBITEMS
+	(FDITEMNAME, FDCATEGORY, FDSHIPDATE, FDCOST)
+VALUES
+	('消しゴム','02','08/17/1971',50);
+
+INSERT INTO TBCUST
+	(FDCUSTNAME, FDADDRESS1, FDADDRESS2, FDTEL, FDFAX)
+VALUES
+	('丸片商会','東京都渋谷区森山','1-3-4','03-5300-****','03-5300-****');
+
+INSERT INTO TBCUST
+	(FDCUSTNAME, FDADDRESS1, FDADDRESS2, FDTEL, FDFAX)
+VALUES
+	('勘違商会','東京都新宿区山川','5-4-1','03-3200-****','03-3200-****');
+
+INSERT INTO TBCUST
+	(FDCUSTNAME, FDADDRESS1, FDADDRESS2, FDTEL, FDFAX)
+VALUES
+	('深海商会','東京都豊島区川本','5-5-5','03-5100-****','03-5100-****');
+
+INSERT INTO TBCUST
+	(FDCUSTNAME, FDADDRESS1, FDADDRESS2, FDTEL, FDFAX)
+VALUES
+	('外民スーパー','東京都調布市若葉台','7-9-14','03-3100-****','03-3100-****');
+
+INSERT INTO TBCUST
+	(FDCUSTNAME, FDADDRESS1, FDADDRESS2, FDTEL, FDFAX)
+VALUES
+	('クレーブ商会','東京都中央区中央','9-10-17','03-2330-****','03-2330-****');
+
+COMMIT;
+
+QUIT;
+
+
+ここではDelphi Version 6を使用することで話を進めます。新規アプリケーションを選択し、フォーム上にTIBDatabase,TIBTransactionを配置します。また、各テーブルのデータ処理を行うTIBDataSetを配置します(図9-2-1)。Formの生成時に、データベースへの接続、トランザクション時のトランザクションパラメータを設定します。また、売上テーブルへのデータ処理のコードを追加します。
+データベースの接続時にデータベースパラメータバッファ(DPB)の設定をTIBDataseのparamsプロパティに行います。設定可能な値は表9-1-3のようになります。また、DatabaseNameに先ほど作成したデータベースを指定します。
+
+表9-1-3.TIBDatabaseのparamsプロパティ
+(table.xls内の表3)
+
+表9-1-4.TIBDatabaseのparamsプロパティ
+(table.xls内の表4)
+
+図9-2-1.InterBase Expressを使用しているところ
+(fig9-2-1.bmp)
+
+
+続いて、fibDataSetSalesオブジェクトを選択し、フィールドの設定を行います。ここに商品名称と顧客名称を参照できるルックアップフィールドを作成します。こちらのフィールドは売上テーブルの顧客番号と顧客テーブルの顧客番号、売上テーブルの商品番号と商品テーブルの商品番号と連携することで参照できるようにします。続いてに、売上テーブルへの追加処理を記述します。追加処理はDBNavigatorで追加ボタンが押された後に、更新ボタンが押されたときに発生します。このときfibDataSetSalesオブジェクトのInsertSQLプロパティで設定されているSQLファイル文が処理されるわけですが、このとき今回のケースのようなジェネレータでNOT NULL制約のフィールドに値を設定するときは（今回のケースでは売上番号）、GeneratorFieldプロパティの設定が必要となります。GeneratorFieldプロパティを使用するためには事前にジェネレータを作成しておく必要があります。今回のケースでは図9-2-2のように値を設定します。この設定により、INSERT文が売上テーブルに発行されたとき、自動的に売上番号が付加されるようになります。こちらですべての処理が終了です。
+作成したプログラムを実行した画面は図9-2-3のようになります。
+InterBase ExpressはInterBase APIの知識を必要とせずに、非常に細かなトランザクション処理や優れたパフォーマンスを提供できるコンポーネントです。今まで、BDE経由で使用されてきた方もわずかな変更で移行することができますので、是非使用して頂きたいと思います。
+
+
+図9-2-2.GeneratorFieldプロパティ
+(fig9-2-2.bmp)
+
+図9-2-3.実行したところ
+(fig9-2-3.bmp)
+
+
+リスト 9-2-2.FIBSampCode.pasのソース
+unit FIBSampCode;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Classes, Graphics, Controls, Forms, Dialogs,
+  StdCtrls, Buttons, Grids, DBGrids, ExtCtrls, DBCtrls, Mask, Db,
+  IBDatabase, IBCustomDataSet;
+
+type
+  TfmFreeIBDemo = class(TForm)
+    dtsrcDemo: TDataSource;
+    GroupBox1: TGroupBox;
+    Label2: TLabel;
+    DBLookupComboBox1: TDBLookupComboBox;
+    Label3: TLabel;
+    DBLookupComboBox2: TDBLookupComboBox;
+    Label4: TLabel;
+    DBEdit2: TDBEdit;
+    DBNavigator1: TDBNavigator;
+    dbgridDemo: TDBGrid;
+    BitBtn1: TBitBtn;
+    FibdbDemo: TIBDatabase;
+    FIBTranDemo: TIBTransaction;
+    fibDataSetSales: TIBDataSet;
+    fibDataSetItems: TIBDataSet;
+    fibDataSetCust: TIBDataSet;
+    fibDataSetSalesFDSALESNO: TIBStringField;
+    fibDataSetSalesFDCUSTNO: TIBStringField;
+    fibDataSetSalesFDITEMNO: TIBStringField;
+    refItemName: TStringField;
+    fibDataSetSalesFDSALESNUM: TIntegerField;
+    fibDataSetSalesFldrefCustName: TStringField;
+    procedure FormCreate(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+  private
+    { Private 宣言 }
+  public
+    { Public 宣言 }
+  end;
+
+var
+  fmFreeIBDemo: TfmFreeIBDemo;
+
+implementation
+
+{$R *.DFM}
+
+procedure TfmFreeIBDemo.FormCreate(Sender: TObject);
+begin
+  with fibdbDemo do
+  begin
+     //データベースの設定
+     DatabaseName:='c:\Data\IBExpressDemo.GDB';
+     Params.Clear;
+     Params.Add('password=masterkey');
+     Params.Add('user_name=SYSDBA');
+     Params.Add('lc_ctype=SJIS_0208');
+  end;
+  with fibtranDemo do
+  begin
+     //トランザクションの設定
+     Params.clear;
+     Params.SetText('consistency');
+     Params.SetText('wait');
+     Params.SetText('write');
+  end;
+  with fibDataSetSales do
+  begin
+     //TBSALESのデータセットの設定
+     DeleteSQL.Clear;
+     DeleteSQL.Add('DELETE FROM TBSALES ');
+     DeleteSQL.Add('   WHERE            ');
+     DeleteSQL.Add('FDSALESNO=:FDSALESNO');
+
+     InsertSQL.Clear;
+     InsertSQL.Add('INSERT INTO TBSALES                ');
+     InsertSQL.Add('(FDCUSTNO, FDITEMNO, FDSALESNUM)   ');
+     InsertSQL.Add('VALUES                             ');
+     InsertSQL.Add('(:FDCUSTNO, :FDITEMNO, :FDSALESNUM)');
+
+     RefreshSQL.Clear;
+     RefreshSQL.Add('SELECT * FROM TBSALES     ');
+     RefreshSQL.Add('WHERE FDSalesNo=:FDSalesNo');
+
+     SelectSQL.Clear;
+     SelectSQL.Add('SELECT * FROM TBSALES');
+
+     ModifySQL.Clear;
+     ModifySQL.Add('UPDATE TBSALES          ');
+     ModifySQL.Add('SET                     ');
+     ModifySQL.Add('  FDCUSTNO=:FDCUSTNO,   ');
+     ModifySQL.Add('  FDITEMNO=:FDITEMNO,   ');
+     ModifySQL.Add('  FDSALESNUM=:FDSALESNUM');
+     ModifySQL.Add('WHERE                   ');
+     ModifySQL.Add('  FDSALESNO=:FDSALESNO  ');
+  end;
+  //データセットのオープン
+  fibdbDemo.Connected   :=True;
+  fibtranDemo.StartTransaction;
+  fibDataSetCust.Open;
+  fibDataSetItems.Open;
+  fibDataSetSales.Open;
+end;
+
+procedure TfmFreeIBDemo.FormClose(Sender: TObject;
+  var Action: TCloseAction);
+begin
+   //終了処理
+   if fibtranDemo.InTransaction then
+      fibtranDemo.rollback;
+  fibDataSetSales.Close;
+  fibDataSetCust.Close;
+  fibDataSetItems.Close;
+  fibtranDemo.Active    :=False;
+  fibdbDemo.Connected   :=False;
+end;
+end.
+
+
+リスト9-2-3.FIBSampCode.dfmの内容（テキスト形式）
+object fmFreeIBDemo: TfmFreeIBDemo
+  Left = 196
+  Top = 108
+  Width = 539
+  Height = 480
+  Caption = 'InterBase Express '#12469#12531#12503#12523#12501#12457#12540#12512
+  Color = clBtnFace
+  Font.Charset = SHIFTJIS_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -12
+  Font.Name = #65325#65331' '#65328#12468#12471#12483#12463
+  Font.Style = []
+  OldCreateOrder = False
+  Position = poScreenCenter
+  Scaled = False
+  OnClose = FormClose
+  OnCreate = FormCreate
+  PixelsPerInch = 96
+  TextHeight = 12
+  object GroupBox1: TGroupBox
+    Left = 8
+    Top = 16
+    Width = 497
+    Height = 177
+    Caption = 'InterBase Express '#12469#12531#12503#12523
+    TabOrder = 0
+    object Label2: TLabel
+      Left = 16
+      Top = 48
+      Width = 48
+      Height = 12
+      Caption = #39015#23458#21517#31216
+      FocusControl = DBLookupComboBox1
+    end
+    object Label3: TLabel
+      Left = 16
+      Top = 88
+      Width = 48
+      Height = 12
+      Caption = #21830#21697#21517#31216
+      FocusControl = DBLookupComboBox2
+    end
+    object Label4: TLabel
+      Left = 16
+      Top = 128
+      Width = 36
+      Height = 12
+      Caption = #36009#22770#25968
+      FocusControl = DBEdit2
+    end
+    object DBLookupComboBox1: TDBLookupComboBox
+      Left = 16
+      Top = 64
+      Width = 254
+      Height = 20
+      DataField = 'FldrefCustName'
+      DataSource = dtsrcDemo
+      TabOrder = 0
+    end
+    object DBLookupComboBox2: TDBLookupComboBox
+      Left = 16
+      Top = 104
+      Width = 254
+      Height = 20
+      DataField = 'custFldrefItemName'
+      DataSource = dtsrcDemo
+      TabOrder = 1
+    end
+    object DBEdit2: TDBEdit
+      Left = 16
+      Top = 144
+      Width = 64
+      Height = 20
+      DataField = 'FDSALESNUM'
+      DataSource = dtsrcDemo
+      TabOrder = 2
+    end
+    object DBNavigator1: TDBNavigator
+      Left = 240
+      Top = 16
+      Width = 240
+      Height = 25
+      DataSource = dtsrcDemo
+      ParentShowHint = False
+      ShowHint = True
+      TabOrder = 3
+    end
+  end
+  object dbgridDemo: TDBGrid
+    Left = 8
+    Top = 200
+    Width = 498
+    Height = 193
+    DataSource = dtsrcDemo
+    Options = [dgTitles, dgIndicator, dgColumnResize, dgColLines, dgRowLines, dgTabs, dgConfirmDelete, dgCancelOnExit]
+    TabOrder = 1
+    TitleFont.Charset = SHIFTJIS_CHARSET
+    TitleFont.Color = clWindowText
+    TitleFont.Height = -12
+    TitleFont.Name = #65325#65331' '#65328#12468#12471#12483#12463
+    TitleFont.Style = []
+    Columns = <
+      item
+        Expanded = False
+        FieldName = 'FDSALESNO'
+        Title.Caption = #22770#19978#30058#21495
+        Visible = True
+      end
+      item
+        Expanded = False
+        FieldName = 'FldrefCustName'
+        Title.Caption = #39015#23458#21517#31216
+        Width = 117
+        Visible = True
+      end
+      item
+        Expanded = False
+        FieldName = 'custFldrefItemName'
+        Title.Caption = #21830#21697#21517#31216
+        Width = 212
+        Visible = True
+      end
+      item
+        Expanded = False
+        FieldName = 'FDSALESNUM'
+        Title.Caption = #36009#22770#25968
+        Visible = True
+      end>
+  end
+  object BitBtn1: TBitBtn
+    Left = 200
+    Top = 408
+    Width = 113
+    Height = 33
+    TabOrder = 2
+    Kind = bkClose
+  end
+  object dtsrcDemo: TDataSource
+    AutoEdit = False
+    DataSet = fibDataSetSales
+    Left = 472
+  end
+  object FibdbDemo: TIBDatabase
+    DatabaseName = 'C:\data\IBEXPRESSDEMO.GDB'
+    Params.Strings = (
+      'password=masterkey'
+      'user_name=SYSDBA'
+      'lc_ctype=SJIS_0208')
+    LoginPrompt = False
+    DefaultTransaction = FIBTranDemo
+    IdleTimer = 0
+    SQLDialect = 3
+    TraceFlags = [tfQPrepare, tfQExecute, tfConnect, tfTransact, tfService, tfMisc]
+    Left = 392
+  end
+  object FIBTranDemo: TIBTransaction
+    Active = False
+    DefaultDatabase = FibdbDemo
+    Params.Strings = (
+      'read_committed'
+      'rec_version'
+      'nowait')
+    AutoStopAction = saCommit
+    Left = 432
+  end
+  object fibDataSetSales: TIBDataSet
+    Database = FibdbDemo
+    Transaction = FIBTranDemo
+    ForcedRefresh = True
+    BufferChunks = 1000
+    CachedUpdates = False
+    InsertSQL.Strings = (
+      'INSERT INTO TBSALES               '
+      '(FDCUSTNO, FDITEMNO, FDSALESNUM)  '
+      'VALUES                             '
+      '(:FDCUSTNO, :DITEMNO, :FDSALESNUM)')
+    SelectSQL.Strings = (
+      'select * from TBSALES')
+    GeneratorField.Field = 'FDSALESNO'
+    GeneratorField.Generator = 'GEN_SALESNO'
+    GeneratorField.ApplyEvent = gamOnPost
+    Left = 176
+    object fibDataSetSalesFDSALESNO: TIBStringField
+      FieldName = 'FDSALESNO'
+      Origin = 'TBSALES.FDSALESNO'
+      Required = True
+      FixedChar = True
+      Size = 8
+    end
+    object fibDataSetSalesFDCUSTNO: TIBStringField
+      FieldName = 'FDCUSTNO'
+      Origin = 'TBSALES.FDCUSTNO'
+      Required = True
+      FixedChar = True
+      Size = 5
+    end
+    object fibDataSetSalesFDITEMNO: TIBStringField
+      FieldName = 'FDITEMNO'
+      Origin = 'TBSALES.FDITEMNO'
+      Required = True
+      FixedChar = True
+      Size = 5
+    end
+    object refItemName: TStringField
+      FieldKind = fkLookup
+      FieldName = 'custFldrefItemName'
+      LookupDataSet = fibDataSetItems
+      LookupKeyFields = 'FDITEMNO'
+      LookupResultField = 'FDITEMNAME'
+      KeyFields = 'FDITEMNO'
+      Size = 40
+      Lookup = True
+    end
+    object fibDataSetSalesFDSALESNUM: TIntegerField
+      FieldName = 'FDSALESNUM'
+      Origin = 'TBSALES.FDSALESNUM'
+    end
+    object fibDataSetSalesFldrefCustName: TStringField
+      FieldKind = fkLookup
+      FieldName = 'FldrefCustName'
+      LookupDataSet = fibDataSetCust
+      LookupKeyFields = 'FDCUSTNO'
+      LookupResultField = 'FDCUSTNAME'
+      KeyFields = 'FDCUSTNO'
+      Size = 40
+      Lookup = True
+    end
+  end
+  object fibDataSetItems: TIBDataSet
+    Database = FibdbDemo
+    Transaction = FIBTranDemo
+    BufferChunks = 1000
+    CachedUpdates = False
+    SelectSQL.Strings = (
+      'select * from TBITEMS')
+    Left = 208
+  end
+  object fibDataSetCust: TIBDataSet
+    Database = FibdbDemo
+    Transaction = FIBTranDemo
+    BufferChunks = 1000
+    CachedUpdates = False
+    SelectSQL.Strings = (
+      'select * from TBCUST')
+    Left = 240
+  end
+end

@@ -1,0 +1,378 @@
+第3章 Firebirdのインストール
+
+実際にFirebirdをマシンにインストールして使用してみましょう。Firebirdの最新版はSourceforge.netのサイトからダウンロードすることができます。また、本紙付属のCD-ROM内にもFirebird 1.0が納められています。
+
+Firebirdのダウンロードサイト
+http://firebird.sourceforge.net/index.php?op=files
+
+Firebirdのサポートしているプラットフォームは次の通りです。一部のプラットフォームでは32ビットI/O版と64ビットI/O版の2種類がリリースされています。また、ビルドにはSuperServer版とClassic版が存在しています。
+
+・HP-UX 10.20 (32-bit I/O) 
+・Intel版 Solaris (32-bit I/O)
+・Intel版 Solaris (64-bit I/O)
+・Sparc版 Solaris (32-bit I/O)
+・Sparc版 Solaris (64-bit I/O)
+・FreeBSD 4.3(64-bit I/O)
+・FreeBSD 4.4(64-bit I/O)
+・MacOS X 
+・Windows版(Windows 98/Me/NT 4.0/2000/XP対応）
+・Intel版 Linux(32-bit I/O)
+・Intel版 Linux(64-bit I/O)
+
+
+2-1.2つのアーキテクチャについて
+Firebirdには2つのアーキテクチャが存在しています。「Classic」アーキテクチャと「SuperServer」アーキテクチャです。「SuperServer」アーキテクチャはInterBase Version 4.2版のリリースより登場しました。それ以前のInterBaseはリレーショナルデータベース管理システムというよりもアプリケーションプログラムが呼び出す共有ライブラリのようなものでした。この当時のアーキテクチャを継承しているのが、現在の「Classic」アーキテクチャと呼ばれているものになっています。「Classic」アーキテクチャ版では、クライアントからのリモート要求はinet-serverと通信するようになっており、inet-serverはサーバーから見ればもうひとつのクライアントになっています。各インスタンスは自分のページとメタデータのキャッシュを所持しています。inet-serverは非常に早い時期に、コネクションごとのプロセスモデルからプロセスごとのスレッドモデルに変更されており、マルチプロセッサ環境でも問題なく動作し、優れたパフォーマンスを提供しています。
+一方、「SuperServer」アーキテクチャは、システムがタイムシャアリング形式の単一システムからクライアントサーバー型へと移行するにあたって、クライアントごとに自分のページとメタデータのキャッシュを持つことはメモリ管理の面から言っても無駄が多く存在するため、スレッドベースで効率よくメモリ管理ができる「SuperServer」アーキテクチャが作成されました。
+Windows環境ではInterBase Version 4.2から、UNIX環境においては、InterBase Version 5.0より「SuperServer」アーキテクチャを採用したビルドがリリースされるようになりました。ただし、Linux版についてはInterBase Version 6.0より「SuperServer」アーキテクチャが採用されたため、下位互換性の意味としても、現在でも2つのアーキテクチャを採用しています。また、「SuperServer」アーキテクチャではマルチプロセッサ環境において並列処理の優先順位をつけることができないため、大規模なシステムのために現在でも「Classic」アーキテクチャが採用されているビルドが多くのユーザーで利用されています。ただし、Windowsプラットフォームについては「SuperServer」アーキテクチャを採用したビルドしかリリースされていません。
+Firebirdでも、この２つのアーキテクチャは当分平行して採用されているものと言われています。
+
+
+2-2.Windowsへのインストール
+Windows版のFirebirdはWindows 98/Me/NT 4.0/2000/XPをサポートしています。Firebirdはサービスに登録することも一つのアプリケーションとして使用することもできるようになっています。また、インストールAPIと呼ばれるFirebird本体をインストールし、環境設定を行えるAPIが用意されているため、自分自身でインストーラを作成することも可能です。
+Windows版のFirebirdにはインストーラが付属していますので、インストーラの表示する画面に従ってインストールを行うことで簡単にインストールすることができます。
+
+	Windows版Firebird 1.0: Firebird-1.0.0.796-Win32.exe
+
+インストール手順：
+	CD－ROM内のFirebird-1.0.0.796-Win32.exeをダブルクリックしてインストーラを起動します（図2-2-1)。
+
+図2-2-1.Firebird 1.0のインストーラ
+(fig2-2-1.bmp)
+
+[Next]ボタンを押すとFirebirdのライセンスが表示されます。FirebirdはMozilla Public LicenseをベースとしたInterBase Public Licenseにて公開されており、アプリケーションの改変・バイナリでの配布などが自由に認められています。ただし、InterBaseという名前および使用されている技術などについては米国Borland Software Corporation社が所持しています。
+
+図2-2-2.ライセンス画面
+(fig2-2-2.bmp)
+
+[Yes]ボタンを押してライセンス規約に承諾するとインストールノートが表示されます。	
+
+図2-2-3.READMEの表示画面
+(fig2-2-3.bmp)
+
+インストールノート（日本語訳)
+
+※注：校正時に日本語に差し替えます
+
+Firebird Database Server 1.0
+============================
+
+This document is a guide to installation of Firebird on the Win32 platform.
+
+Contents
+--------
+
+o Before installation
+o Installing on a system with InterBase
+o Installation assumptions
+o Uninstallation
+o Other Notes
+o Installation from a batch file
+
+
+Before Installation
+-------------------
+
+  IMPORTANT!
+
+  This installation package will try to detect if an existing
+  version of Firebird or InterBase is installed and/or running.
+
+  You must either STOP the current server and/or remove the 
+  currently installed version before continuing.
+
+
+  Stopping the Server
+
+  o If it is running as a service stop it via 'Control Panel | Services'.
+  o If it is an application just close it.
+
+
+  Removing an existing server
+  
+  It is recommended that you uninstall a previous version of Firebird 
+  or InterBase, but it is not a requirement. See the Uninstallation 
+  section below for more details of the Firebird uninstallation routine.
+
+
+Installing on a system with InterBase
+-------------------------------------
+
+  Firebird 1.0 cannot be run at the same time as InterBase (any version). 
+  You must uninstall InterBase before installing Firebird. This may change 
+  with future releases. 
+
+  It is recommended that you do NOT install Firebird over an existing 
+  InterBase install. Install it to a new directory and use gbak to backup
+  your old isc4.gdb. Restore it under a new name. Stop the Firebird server.
+  Rename the database to isc4.gdb and then restart the server.
+
+  If you have special settings in ibconfig you can place them in the new 
+  ibconfig. Don't forget that they wont take effect until you restart the
+  server.
+
+Installation assumptions
+------------------------
+
+  o Admin rights are needed to install Firebird as a service. This requirement 
+    does not apply to Win95, Win98 or Win ME.
+
+  o If an existing, newer version of GDS32.DLL exists you will be prompted to 
+    overwrite it. It is recommended to answer YES if you are doing a server 
+    install.
+
+  o If an existing version of MSVCRT.DLL exists it is no longer updated. The 
+    installation will install it only if it does not exist on the target
+    system.
+
+  o If certain configuration files exist in the installation directory 
+    they will preserved. The files are
+
+      isc4.gdb
+      interbase.log
+      ibconfig
+
+
+
+Uninstallation
+--------------
+
+  The Firebird uninstall routine preserves the following key files:
+
+    isc4.gdb
+    interbase.log
+    ibconfig
+
+  No attempt is made to uninstall files that were not part of the original 
+  installation.
+
+  Shared files such as gds32.dll will be deleted if the share count 
+  indicates that no other application is using it.
+
+  The registry keys that were created will be removed.
+
+Other Notes
+-----------
+
+  Firebird requires WinSock2. All Win32 platforms should have this, except
+  for Win95. A test for the Winsock2 library is made during install. If
+  it is not found the install will fail. You can visit this link:
+
+    http://support.microsoft.com/default.aspx?scid=kb;EN-US;q177719
+
+  to find out how to go about upgrading.
+
+
+Installation from a batch file
+------------------------------
+
+The setup program can be run from a batch file. This is useful if you wish
+to install the client across a network. The following parameters may be passed:
+
+
+/SP- 
+  Disables the This will install... Do you wish to continue? prompt at 
+  the beginning of Setup. 
+
+/SILENT, /VERYSILENT 
+  Instructs Setup to be silent or very silent. When Setup is silent the 
+  wizard and the background window are not displayed but the installation 
+  progress window is. When a setup is very silent this installation 
+  progress window is not displayed. Everything else is normal so for 
+  example error messages during installation are displayed and the startup 
+  prompt is (if you haven't disabled it with  the '/SP-' command line option 
+  explained above) 
+
+  If a restart is necessary and the '/NORESTART' command isn't used 
+  (see below) and Setup is silent, it will display a Reboot now? 
+  messagebox. If it's very silent it will reboot without asking. 
+
+/NORESTART 
+  Instructs Setup not to reboot even if it's necessary. 
+
+/DIR="x:\dirname"  
+  Overrides the default directory name displayed on the Select Destination 
+  Directory wizard page. A fully qualified pathname must be specified. If 
+  the [Setup] section directive DisableDirPage was set to yes, this command 
+  line parameter is ignored. 
+
+/GROUP="folder name" 
+  Overrides the default folder name displayed on the Select Start Menu Folder 
+  wizard page. If the [Setup] section directive DisableProgramGroupPage was 
+  set to yes, this command line parameter is ignored. 
+
+/NOICONS 
+  Instructs Setup to initially disable the Don't create any icons check box 
+  on the Select Start Menu Folder wizard page. 
+
+/COMPONENTS="component name" 
+
+  Choose from - Server, DevTools and Client
+
+  Overrides the default components settings. Using this command line parameter 
+  causes Setup to automatically select a custom type. 
+
+
+
+
+[Next]ボタンを押すと、インストール先の指摘画面が表示されます。FirebirdはデフォルトでC:\Program files\firebirdに格納されます。すでにInterBaseがインストールされている場合は、InterBaseがインストールされているディレクトリが表示されます。InterBaseとFirebirdは同一環境で共存できないので、InterBaseがインストールされている場合はアンインストールを行ってから、Firebirdのインストールを行ってください。
+
+図2-2-4.インストール先の指定
+（fig2-2-4.bmp)
+
+[Next]ボタンを押すとインストールするインストールオプションの指定画面が表示されます。サーバーも含めてすべてインストールするか、クライアントだけをインストールするか、それともカスタムでインストールしたいプログラムを指定するかの3種類が選択できます。
+
+図2-2-5.インストールオプションの指定
+(fig2-2-5.bmp)
+
+[Next]ボタンを押すと、スタートメニューのフォルダを追加するかどうかの確認画面が表示されます。デフォルトではFirebirdとフォルダが追加されます。
+
+図2-2-6.フォルダの指定
+(fig2-2-6bmp)
+
+[Next]ボタンを押すと、フォルダの追加を行うかと、FirebirdをGuradianサービスと一緒に動かすかどうかの選択画面が表示されます。GuradianサービスはFirebirdのサーバープロセスを監視する機能です。サーバーが異常終了した場合などはログに記述し、サーバーを再起動するなどの設定が可能になっています。デフォルトではGuardianサービスを利用する設定になっています。また、インストール後に設定を変更することも可能です。また、インストール終了後にサービスを起動するかどうかの設定を行うことができます。
+
+図2-2-7.サーバー設定画面
+
+[Next]ボタンを押すと、これまでに設定した内容が表示されます。[Install]ボタンを押すとインストールが実行されます。
+
+
+図2-2-8.確認画面
+(fig2-2-8.bmp)
+
+
+インストールが終了すると、READMEファイルの内容が表示されます。こちらのREADMEファイルはFirebirdのルートディレクトリに保存されますので後で参照することもできます。
+
+図2-2-9.READMEファイルの表示画面
+(fig2-2-9.bmp)
+
+※注：校正時に日本語に差し替えます
+
+READMEファイル（日本語訳）
+==================================
+Firebird 1.0.0       (Win32 Build)
+==================================
+
+
+o Introduction
+o Intended Users
+o Installation
+o Known Issues
+o Reporting Bugs
+o Requesting New Features
+
+
+Introduction
+============
+
+Welcome to Firebird 1.0.0. This represents a feature complete
+build of Firebird 1.0. It is the product of many months work by the 
+Firebird team. See the Release Notes document for details of all the 
+new features and the bug-fixes it contains. 
+
+
+Intended Users
+==============
+
+Overall we believe this release to be more stable and more reliable than ANY 
+previous release of Firebird or InterBase 6.n. It is the result of months of 
+work and the release candidates have been tested by thousands of users. As 
+such there is no reason to be overly concerned about using it in a production 
+environment. However, before deploying ANY software into a production 
+environment it should always be tested properly on a development system. 
+This is standard practice.
+
+
+Installing the self-installing executable
+=========================================
+
+Please run the executable and read the accompanying installation 
+instructions that are contained within the setup wizard.
+
+
+Known Issues
+============
+
+There are no known issues at this time. (11-Mar-2002). 
+  
+
+Reporting Bugs
+==============
+
+o Are you sure you understand how Firebird works?
+
+  Perhaps you are seeing the correct behaviour and you really have a 
+  support question. In this case contact the ib-support list server.
+ 
+  You may subscribe here: 
+
+    mailto:ib-support-subscribe@yahoogroups.com
+
+
+o Still think it is a bug? 
+
+  Check the list of Open Bugs. This can be found at
+
+    http://prdownloads.sourceforge.net/firebird/Firebird_v1_OpenBugs.html
+
+  An older version is contained in the doc directory of this release.
+
+Otherwise, if you are reasonably sure it is a bug then please 
+try to develop a reproducible test case. You can then submit it
+to the Firebird bug tracker at:
+
+  http://sourceforge.net/tracker/?atid=109028&group_id=9028&func=browse
+
+
+Requesting New Features
+=======================
+
+Before submitting feature requests please review the existing 
+feature request list. Chances are that someone has already thought 
+of it. See this link for a current list:
+
+  http://prdownloads.sourceforge.net/firebird/Firebird_v1_OpenFeatures.html
+
+or look in the doc directory of this release for a slightly older version.
+
+Feature requests should be submitted via:
+
+  http://sourceforge.net/tracker/?atid=109028&group_id=9028&func=browse
+
+
+[Next]ボタンを押すと、インストール完了画面が表示されます。これで、Firebirdのインストールを無事終えることができました。ただし、FirebirdのインストーラではGUIの管理ツールであるIBConsoleはインストールされません。IBConsoleは以下のURLから最新ファイルを取得するか、CD-ROMからibconsole.exeをコピーして使用してください。なお、IBConsoleは日本語文字列の表示ができません。日本語が表示できるものを使用したい場合は、IBConsoleのソースを入手して自分でビルドし直すか、筆者の修正したもの（CD-ROMに同梱）を使用してください。
+
+図2-2-10.インストール完了画面
+(fig2-2-10.bmp)
+
+図2-2-11.サービスに追加されたところ
+(fig2-2-11.bmp)
+
+IBConsoleの入手先：
+バイナリ：(Borland Communityへの登録が必要）
+http://codecentral.borland.com/codecentral/ccweb.exe/author?authorid=102
+ソースコード
+http://sourceforge.net/projects/ibconsole/
+
+
+2-3.Linux環境へのインストール
+Linux版のFirebirdにはClassicアーキテクチャ版とSuperServeアーキテクチャr版の2種類があり、SuerpServerアーキテクチャ版には32ビットI/O版と64ビットI/O版が用意されています。また、それぞれRPM形式のものとtar.gz形式のものが用意されています。
+
+Firebird 1.0 Linux版：
+	FirebirdCS-1.0.0.796-0.i386.rpm --------- Classicアーキテクチャ版(32bit I/O) RPM形式
+	FirebirdCS-1.0.0.796-0.tar.gz ----------- Classicアーキテクチャ版(32bit I/O) tar.gz形式
+	FirebirdSS-1.0.0.796-0.64IO.i386.rpm ---- SuperServerアーキテクチャ版(64bit I/O) RPM形式
+	FirebirdSS-1.0.0.796-0.64IO.tar.gz ------ SuperServerアーキテクチャ版(64bit I/O) tar.gz形式
+	FirebirdSS-1.0.0.796-0.i386.rpm --------- SuperServerアーキテクチャ版(32bit I/O) RPM形式
+	FirebirdSS-1.0.0.796-0.tar.gz ----------- SuperServerアーキテクチャ版(32bit I/O) tar.gz形式
+
+RPM版のインストールは単純にRPMコマンドを使用して行います。
+	# rpm -ivh FirebirdSS-1.0.0.796-0.i386.rpm
+
+tar.gz版のインストールは次のように行います。ここでは/tmpディレクトリにファイルがコピーされているものとします。
+	# tar zxvf FirebirdSS-1.0.0.796-0.tar.gz
+	# ./install FirebirdSS-1.0.0.796-0.tar
+
+Firebirdは/opt/interbase以下にインストールされます。
+
+Linux環境でIBConsoleを使用したい場合は、IBConsole for Linuxを導入することでX-Windows上でIBConsoleを使用することができます。また、本紙付属のCD-ROMにもIBConsole for Linuxが付属しています(日本語未対応）。
+

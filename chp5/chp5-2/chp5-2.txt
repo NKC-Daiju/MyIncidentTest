@@ -1,0 +1,164 @@
+5-2.制約について
+
+5-2-1.制約とは
+Firebirdには文字型、数値型、時間型、バイナリ型などの数多くのデータ型が用意されています。フィールドを定義する場合は必ずデータ型を指定する必要があります。データ型を指定することのより、そのフィールドに保存されるデータ型を特定することができます。もし、データ型が分からなかったらクライアントはアクセスするたびに受け取ったデータの型を特定しなければなりません。これは非常にオーバーヘッドの大きい作業になるだけでなく、どの程度のメモリ領域が必要になるかが分からないため、プログラム的にも非常に複雑になってしまうでしょう。データ型特定されていることにより、クライアントは受け取るデータ型が分かり、プログラム言語との親和性も高くなるわけです。
+Firebirdには制約という機能が提供されています。制約とは言葉のとおり、条件をつけて自由を制限することです。Firebirdでは制約を使用することによりフィールドに格納されるデータを制限することができます。たとえば、初期値としてある数値や文字列を入れたり、保存される数値の範囲を指定したりすることができます。たとえば、論理型のないFirebirdでは数値型フィールドに0または1以外の値が入らないように制約をつけ、論理型の代わりに使用することも可能です。また、必ずデータが保存されるように、NOT NULL制約をつけることもできます。コマンドラインのisqlを使って、制約条件を実際にデータベース、テーブルを作成しながらみていきましょう。
+例5-2-1-1では初期値とNOT NULL制約を指定したフィールドを持つテーブルに対してデータを格納したものです。初期値をfield2には初期値を指定していますので、データ追加時に保存されるデータを指定していないときは初期値が格納されます。NOT NULL制約を持つフィールドにデータを入れずに保存し要した場合、例5-2-1-2のようなエラーが発生します。このエラーはFIELD3はNOT NULL制約なのにデータが指定されていないというものです。
+このほかにも制約には、必ず他と異なるデータが格納されるUNIQUE制約、妥当性検査を行うCHECK制約、プライマリキー(主キーとも言います)に代表される整合性などの制約があります。プライマリキーはスキーマを設計するとき必ずといっていいほど、非常によく使われる整合性制約です。また、各テーブルには必ずプライマリキーをつけることを薦めている方も多くいます。
+プライマリキーとはレコードを一意に識別するフィールドまたはフィールドの集まりで、他のテーブルを参照することのできる外部キー(Foreign Key)を設定できる特別な整合性制約です。一つのテーブルにはプライマリキーは一つしか設定できません。ただし、必ず一つのフィールド単体である必要はなく、２つ以上のフィールドを連結してプライマリキーを設定することは可能です。
+例5-2-1-3はf1フィールドをプライマリキーに持つTable2とf1フィールドとf2フィールドをプライマリキーに持つTable3を作成するSQL文をISQLで実行しているところです。Table2ではf1フィールドの設定時にプライマリキーのオプションを指定していますが、下のように書くことも可能です。プライマリキーに２つのフィールドを指定する場合は必ず下のようにPrimary Key (<フィールド1>,<フィールド2>....)という書き方となります。
+
+例5-2-1.NOT NULL制約条件
+	コマンドラインのisqlを起動して制約を確認(Linuxの例)
+	$ ./isql -U SYSDBA -P masterkey
+	Use CONNECT or CREATE DATABASE to specify a database
+	データベースの作成(デフォルトキャラクターセットをSJISに設定)
+	SQL> create database '/tmp/mytest.gdb' default character set SJIS_0208;
+	テーブルの作成
+	SQL> create table table1 (
+	CON>        field1 char(10),
+	CON>        field2 char(10) default 'TEST',
+	CON>        field3 integer not null
+	CON>        );
+	データの入力
+	SQL> insert into table1
+	CON>        (field1, field3)
+	CON>        values
+	CON>        ('KATO',1);	
+	データの参照
+	SQL> select * from table1;
+ 
+	FIELD1     FIELD2           FIELD3
+	========== ========== ============
+	KATO       TEST                  1
+ 
+
+例5-2-2.NOT NULL制約でデータを保存しない場合のエラー
+	SQL> insert into table1
+	CON>     (field1,field2)
+	CON>    values
+	CON>     ('DAIJU','KATO');
+	Statement failed, SQLCODE = -625
+
+	validation error for column FIELD3, value "*** null ***"
+
+
+例5-2-3.プライマリキーの設定
+	f1フィールドをプライマリキーに持つTable2を作成
+	SQL> create table table2 (
+	CON>        f1 char(10) not null primary key,
+	CON>        f2 char(10) not null,
+	CON>        f3 integer not null,
+	CON>        f4 date default 'now'
+	CON>        );   
+	SQL>
+	f1,f2フィールドをプライマリキーに持つTable3を作成
+	SQL> create table table3 (
+	CON>        f1 char(10) not null,
+	CON>        f2 char(10) not null,
+	CON>        f3 integer not null,
+	CON>        f4 date default 'now',
+	CON>        primary key (f1,f2)
+	CON>        );
+	SQL>         
+
+
+5-2-2.外部キーについて
+データベースを利用している人は、正規化という言葉を聞いたことがあると思います。正規化とは簡単に説明すると、同じデータが2つ以上のテーブルに納められることなく、常に一つとして存在しているようにし、データの保存・検索、スキーマのメンテナンスを行いやすいようにすることです。
+外部キー制約(Foreign Key Constraint)は参照制約(Referential Integrity)とも呼ばれます。外部キーは、1つのテーブルのフィールドまたはフィールドの集まりで、他のテーブル（同一テーブルでも可能）のプライマリキーと一致するデータを持ちます。参照するデータを持ち、一致するかどうかの整合を行うので参照制約とも呼ばれるのです。図5-2-2-1のように外部キーには必ず親子関係が成り立ちます。受注マスターの得意先コードは得意先マスターの得意先コードを参照していますので、得意先マスターが親で受注マスターが子という形になります。
+
+図5-2-2-1.外部キー
+(fig5-2-2-1.bmp)
+
+このスキーマ構造を作成するSQL文は例5-2-2-1のようになります。実際にデータを入力し、参照元にデータがない場合にどのようなエラーが起きるかを示しています。参照データがない場合、つまり該当する顧客コードがないデータを入力しようとすると、SQLCODE -530の参照制約のエラーが発生します。ここで、"INTEG_24"という名前が出てきますが、これはFirebirdが自動的につけたこの参照制約の名前です。どのような名前が付いているかは、SHOW TABLE <テーブル名>を実行することで見ることができます。また、constraint <制約名>と指定することで、下のように自分で制約名を付けることもできます。
+外部キーを利用することで本来格納できないデータが保存されてしまうなどの問題を解決することができ、プログラム側でこれらの考慮を行う必要がなくなります。
+
+ 
+例5-2-2-1.外部キーを使うスキーマの作成
+	顧客マスターを定義
+	SQL> create table customer (
+	CON>        cust_no char(10) not null,
+	CON>        cust_name char(50)  not null,
+	CON>        tel char(10),
+	CON>        address char(120),
+	CON>        primary key (cust_no)
+	CON>        );
+	SQL>
+	受注マスターを定義
+	SQL> create table orders (
+	CON>        order_no   char(10) not null,
+	CON>        cust_no    char(10) not null,
+	CON>        order_date date default 'now',
+	CON>        amount     integer not null,
+	CON>        item       char(50) not null,
+	CON>        primary key (order_no),
+	顧客マスターの顧客コードを外部キーとして設定
+	CON>        foreign key (cust_no) references customer (cust_no)
+	CON>        );        
+	SQL>
+	顧客マスターにデータの入力
+	SQL> insert into customer
+	CON>        ( cust_no, cust_name, tel,address)
+	CON>        values
+	CON>        ('00001','DAIJU KATO', '03-5932-', 'Suginami-ku, Tokyo');
+	SQL> 
+	受注マスターにデータを入力(顧客コード有)
+	SQL> insert into orders
+	CON>        (order_no, cust_no, amount, item)
+	CON>        values
+	CON>        ('10001','00001',1980,'Linux Magazine'); 
+	SQL>
+	受注マスターにデータを入力(顧客コードなし) --- エラー
+	SQL> insert into orders
+	CON>        (order_no, cust_no, amount, item)
+	CON>        values
+	CON>        ('10002','10000',1980, 'BSD Magazine');
+	参照テーブルにデータがないのでエラー発生
+	Statement failed, SQLCODE = -530
+	violation of FOREIGN KEY constraint "INTEG_24" on table "ORDERS"  
+	SQL>
+	制約名を確認
+	SQL> show table orders;
+	ORDER_NO                        CHAR(10) Not Null
+	ORDER_DATE                      DATE Nullable default 'now'
+	AMOUNT                          INTEGER Not Null
+	ITEM                            CHAR(50) Not Null
+	CUST_NO                         CHAR(10) Not Null
+	CONSTRAINT INTEG_24:
+  	Foreign key (CUST_NO)    References CUSTOMER (CUST_NO)
+	CONSTRAINT INTEG_22:
+ 	 Primary key (ORDER_NO)
+	SQL>
+                       
+a)CHECK制約について
+CHECK制約とは格納されるデータが妥当であるかどうか、つまり保存してもいいかどうかを検査するための制約です。たとえば、統計データの最小値と最大値を格納するようなテーブルの場合、最大値のフィールドに格納されるデータは必ず最小値のデータよりも大きくなければならないというルールが成り立ちます。このルールとなるのがCHECK制約というわけです。ただし、フィールドは一つしかCHECK制約を持つことができませんので注意が必要です。例5-2-2-2はCHECK制約を使用するテーブルを作成し、データを格納しています。参照制約と同じように、CHECK制約に違反するデータを書き込もうとすると、SQLCODE=-297のCHECK制約のエラーが発生します。
+
+例5-2-2-2.CHECK制約を使用
+	職種テーブルの作成
+	SQL> create table job (
+	CON>        jobcode char(10) not null,
+	CON>        jobname char(50) not null,
+	CON>        min_salary integer not null,
+	CON>        max_salary integer not null,
+	CON>        primary key (jobcode),
+	CON>        constraint check_salary
+	CON>           check (min_salary < max_salary)
+	CON>        );
+	SQL>          
+	職種テーブルにデータを追加
+	SQL> insert into job
+	CON>        (jobcode, jobname, min_salary, max_salary)
+	CON>        values
+	CON>        ('00001','ACCOUNT', 5000, 10000);
+	SQL>      
+	職種テーブルにデータを追加 --エラーケース
+	SQL> insert into job
+	CON>     (jobcode, jobname, min_salary, max_salary)
+	CON>     values
+	CON>     ('0002','SALES', 8000,7000);
+	Statement failed, SQLCODE = -297
+	
+	Operation violates CHECK constraint CHECK_SALARY on view or table JOB
+	SQL>      
+
+

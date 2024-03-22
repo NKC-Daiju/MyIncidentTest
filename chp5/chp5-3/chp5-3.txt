@@ -1,0 +1,60 @@
+5-3.ドメインについて
+
+Firebirdにはドメインというグローバルなフィールドの定義ができる機能があります。複数のテーブルで同じデータ型、フィールドのサイズを持つ場合、ドメインを使用することでメンテナンス性が向上します。各テーブルの定義の時はドメイン名でフィールドのタイプを定義しておき、変更が生じたらドメインの定義を修正することでテーブル側の修正を行うことなく、スキーマの再構築を行うことができます。ドメインは参照制約は使用できませんが、CHECK制約の指定は可能です。
+ドメインの作成はCREATE DOMAIN構文を使用します。
+
+	CREATE DOMAIN domain [AS] <データ型>
+	[DEFAULT { リテラル値  | NULL | USER}]
+	[NOT NULL] [CHECK ( <CHECK制約の条件>)]
+	[COLLATE <コレーションオーダー>];
+
+使用できるデータ型がフィールドで使用できるデータ型と同じです。ドメインにはデフォルト値を指定することができ、フィールド定義の時と同じように、文字列、数値、今日の日付('NOW')などを指定することができます。また、USERというキーワードを使用することでログインしているユーザー名を格納することができます。例5-3-1はドメイン定義を行い、ドメインを使用したテーブルを作成した例です。SHOW TABLEで作成したテーブルの構造を確認してみると、ドメイン定義の情報が活かされていることが分かります。また、ドメインではNULL値かどうかの
+ドメイン情報の変更はALTER DOMAIN構文で行うことができますが、データ型、サイズ、NOT NULL制約について変更はできません。CHECK制約やデフォルト値などについては変更が可能です。
+
+	ALTER DOMAIN name {
+	[SET DEFAULT { リテラル値 | NULL | USER}]
+	| [DROP DEFAULT]
+	| [ADD [CONSTRAINT] CHECK ( <CHECK制約の条件>)]
+	| [DROP CONSTRAINT]
+	};
+
+
+例5-3-1.ドメインの定義
+	デフォルトがユーザー名となるUSERNAMEのドメインの作成
+	SQL> CREATE DOMAIN USERNAME AS VARCHAR(20) 
+	     DEFAULT USER;
+	SQL>
+	顧客番号(CUST_NO)のドメインの作成
+	SQL> CREATE DOMAIN CUST_NO AS CHAR(10) NOT NULL;
+	SQL> 
+	ドメインを使用したテーブルの作成
+	SQL> CREATE TABLE ORDER_ENTRY (
+	CON>         CUST_NO CUST_NO,
+	CON>         ENTRY_BY USERNAME,
+	CON>         ENTRY_DATE DATE DEFAULT 'NOW',
+	CON>         PRIMARY KEY (CUST_NO)
+	CON>       ); 
+	SQL>
+	SQL> show table ORDER_ENTRY;
+	CUST_NO                         (CUST_NO) CHAR(10) Not Null
+	ENTRY_BY                        (USERNAME) VARCHAR(20) Nullable DEFAULT USER
+	ENTRY_DATE                      DATE Nullable DEFAULT 'NOW'
+	CONSTRAINT INTEG_35:
+	  Primary key (CUST_NO)
+	SQL>                                
+	データを追加
+	SQL> insert into ORDER_ENTRY
+	CON>     (CUST_NO)
+	CON>     VALUES
+	CON>     ('0001');
+	SQL>
+	SQL> select * from ORDER_ENTRY;
+	
+	CUST_NO    ENTRY_BY              ENTRY_DATE
+	========== ==================== ===========
+	
+	0001       SYSDBA               2000-11-19
+	
+	SQL>                
+      
+

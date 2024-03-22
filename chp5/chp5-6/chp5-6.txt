@@ -1,0 +1,109 @@
+5-6.トリガーについて
+
+トリガーはあるテーブルやビューのデータ操作に基づいて実行されるプログラムです。Windowsのプログラムを書かれている人であれば、データ処理によって発生するイベント型のプログラムと言った方が分かりやすいかもしれません。INSERT、DELETE、UPDATEを実行しようとするとそのテーブルと操作に関連するトリガーが自動的に実行（起動）されます。トリガーでエラー処理のために呼び出される名前付きのメッセージである例外を使用することもできます。
+トリガーを利用する利点をまとめると次のようになります。
+	・ユーザーが有効な値のみを列に入力するように、自動的に入力データ制限を強制することができます。
+	・トリガーの変更は、再コンパイルやテーブルへの再リンクの必要がなく、関連するテーブルを使うすべてのアプリケーションで自動的に反映されるので、アプリケーションの保守が容易になります。
+	・テーブルの変更を自動的にログにすることができます。アプリケーションは変更とテーブルの修正のたびに起動するトリガーと同時にログにすることができます。
+	・トリガーでイベントアラータを使用することで、データベースの返答を自動通知することができます。
+	・ALTER TRIGGERのACTIVE/INACTIVEを切り替えることで条件に応じてトリガーの発生を制御することができます。
+トリガーはコマンドラインで使用できるISQLまたはInteractiveを使用して作成します。トリガーを作成する構文は次の通りです。
+
+	CREATE TRIGGER name FOR table
+		[ACTIVE | INACTIVE]
+		{BEFORE | AFTER}
+		{DELETE | INSERT | UPDATE}
+		[POSITION number]
+		AS <trigger_body> terminator
+		<trigger_body> = [ <variable_declaration_list>] <block>
+		<variable_declaration_list> =
+		DECLARE VARIABLE variable <datatype>;
+		[DECLARE VARIABLE variable <datatype>; 
+		< block> =
+			BEGIN
+				<compound_statement>
+				[ <compound_statement> 
+			END
+		<compound_statement> = { <block> | statement;}
+		<datatype> = {
+			{SMALLINT | INTEGER | FLOAT | DOUBLE PRECISION}
+			| {DECIMAL | NUMERIC} [( precision [, scale])]
+			| DATE | {CHAR | CHARACTER | CHARACTER VARYING | VARCHAR}
+			[( int)] [CHARACTER SET charname]
+			| {NCHAR | NATIONAL CHARACTER | NATIONAL CHAR}
+			[VARYING] [( int)]}
+
+引数                    		説明
+---------------------------------------------------------------------------------------------------
+							トリガー名。データベース内で一意なものにします。
+table	  					トリガーを起動させる動作の対象となるテーブル名またはビュー名
+ACTIVE|INACTIVE     		任意項目。トランザクションの終了時にトリガーが起動するかどうかを指定し
+							ます。
+		             		・ACTIVE：（デフォルト）トリガーが起動することを指定します。
+		             		・INACTIVE：トリガーが起動しないことを指定します。
+BEFORE | AFTER				必須項目。トリガーの起動時期を指定します。
+							・BEFORE : 連動した動作が発生する前に，トリガーが起動することを指定
+							します。
+							・AFTER : 連動した動作が発生した後に，トリガーが起動することを指定
+							します。
+							連動した動作とは，DELETE，INSERT，UPDATE のいずれかです。
+DELETE | INSERT |UPDATE		トリガーを起動させる，テーブルの動作を指定します。
+POSITION number				同一動作の前後に発生させるトリガーの順序を指定します。number
+							は，0 ～32767 の整数でなければなりません。
+							・数字が小さいトリガーほど，早く起動します。
+							・デフォルトは，0（最初に起動するトリガー）です。
+							・テーブルに対するトリガーは，連続していなくてもかまいません。
+							同一の動作を対象とした，ポジション番号が同じトリガーの起動順序は不規則
+							になります。
+DECLARE VARIABLE			トリガー専用のローカル変数を宣言します。宣言文は，DECLARE
+var datatype				VARIABLE で始まり，セミコロン（;）で終わります。
+							・var：トリガー内で一意なローカル変数名
+							・datatype：ローカル変数のデータ型
+statement 					Firebirdプロシージャとトリガー言語で記述された文。BEGIN と
+							END を除き，どの文もセミコロン（;）で終わります。
+terminator 					SET TERM 文で設定したトリガー本文の終わりを示すターミネータ。
+							isql だけで使用します。
+
+構文を見てもらうとわかるように、Firebirdはデータ処理を行う前に実行されるBEFOREトリガー、データ処理後に実行されるAFTERトリガーの２種類をサポートしています。それぞれ一つのデータ操作（INSERT、DELETE、UPDATE)のBEFOREトリガー、AFTERトリガーごとに32768まで作成することができます。
+また、一つの動作に対して32768までトリガーを設定することができ、これらのトリガーの優先順位はPositionを指定することで設定することができます。例えば下のようにトリガーが設定されているとき、更新動作によってこれらのトリガーは次のような順番で実行されます。
+
+	CREATE TRIGGER A FOR accounts
+		BEFORE UPDATE
+		POSITION 5 
+		/*トリガーの内容*/
+
+	CREATE TRIGGER B FOR accounts
+		BEFORE UPDATE
+		POSITION 0 
+		/*トリガーの内容*/
+
+	CREATE TRIGGER C FOR accounts
+		AFTER UPDATE
+		POSITION 5 
+		/*トリガーの内容*/
+
+	CREATE TRIGGER D FOR accounts
+		AFTER UPDATE
+		POSITION 3 
+		/*トリガーの内容*/
+
+	トリガーが実行される順番
+	------------------------
+		1.トリガーB
+		2.トリガーA
+		3.更新動作
+		4.トリガーD
+		5.トリガーC
+
+POSITIONを利用することで優先順位を決めることができますが、あまりネストしたトリガーを作成することはお奨めできません。トリガーの動きが把握できなくなる可能性があるからです。また、デバックについてもソースコードと実行結果をおっかけることしかできませんので、あまりネストしたトリガーは使わないようにしてください。では、どんな場合が便利かというと、更新処理のログを取るようなケースが最適だと思われます。Position 0で本来トリガーで行いたい内容を実施し、Position 1のトリガーでログを特定のテーブルに記載するのがいいでしょう。また、トリガーのALTER TRIGGER構文を使用してActiveとInactiveを変更することで、ある条件下ではトリガーを実行できなくすることができます。開発時にのみ使用するトリガーなどを分けておき、運用時はINACTIVEにしてしまうのもいいかもしれません。
+Firebirdではトリガー内で使用できる2つのコンテキスト変数が用意されています。
+	・NEWコンテキスト変数
+		構文： NEW.column
+        意味：INSERTやUPDATEにおける挿入後や更新後の列の値を参照する。NEWコンテキスト変数を利用
+			  して、列の値を変更できるのは動作の前だけ(Beforeトリガー内のみ)である。
+	・OLDコンテキスト変数
+		構文： OLD.column
+        意味：INSERTやUPDATEにおける挿入前や更新前の列の値を参照する。
+これらのコンテキスト変数を使用することで、挿入や更新の前後の値を参照することができ、トリガー内で幅広いデータ処理を行うことができます。
+トリガーは、トリガーが起動されるプログラム内のトランザクションのコンテキスト内で動作します。トリガーは，呼び出しプログラムの現在の作業単位の一部と見なされます。トリガーがトランザクション内で起動され、トランザクションがロールバックされると、トリガーによって行われた動作もロールバックされます。
+ユーザーまたはプロシージャに特権が与えられるのと同様に、トリガーは，テーブルの特権を与えることができます。GRANT文を使用してトリガーに権限を与えることができます。TO username の代わりにTO TRIGGER trigger_nameを使用します。トリガーの特権は、REVOKEを使用して同様に取り消すことができます。

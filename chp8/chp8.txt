@@ -1,0 +1,435 @@
+第8章 InterClientの利用
+
+InterClientはFirerbirdおよびInterBase用のタイプ3のJDBCドライバです。こちらのドライバを利用することでJavaから簡単にデータ操作を行うことができます。InterClientについて説明する前に簡単にJDBCドライバの役割について説明しておきましょう。
+
+8-1.JDBCドライバについて
+Windowsプラットフォームで稼働するデータベースアプリケーションを構築する場合、ODBCインタフェースとODBCドライバを使用してデータベースに接続しデータ処理を行うが一般的です。Java言語の場合は、JDBCという技術を利用します。JDBCはJavaの開発元であるSun Microsystems社が推奨しているJavaからデータベースに接続するインターフェース技術です。JDBC APIというのが用意されており、現在の最新はJDBC 3.0となっておりますが、まだ公開されたばかりなので、多くのJDBCドライバがJDBC 2.1の仕様に準拠しています。
+JDBCの仕様はSun MicrosystemsのWebサイトで公開されています。
+
+JDBCについて
+http://www.java.sun.com/products/jdbc/index.html
+
+JDBCが提供しているのはJDBCドライバを使用するためのインターフェースであり、JDBCドライバの違いを吸収し、JavaプログラムがJDBCドライバに大きく依存しないように考えられています。JDBCドライバが受け持つ内容は次の通りです。
+
+	・Javaプログラムからデータベースサーバーへの接続を可能にする
+	・SQL文を組立てて、データベースサーバーで実行されるように取り持つ
+	・データベースサーバーが処理した結果を取り出せるようにする
+	・データベースの情報、処理結果に関する情報などを取り出せるようにする
+
+このようにJDBCはデータベースに接続するのに必要な処理とデータ処理に必要な処理を受け持っているのです。各データベースと接続するJDBCドライバには次の4つの種類があります。これらのタイプを図にしたものが図7で、ドライバのタイプによって接続方法が異なります。
+
+	・タイプ1：ODBCブリッジドライバ
+	・タイプ2：ネイティブAPI Partly-Javaドライバ 
+	・タイプ3：ネットプロトコルAll-Javaドライバ
+	・タイプ4：ネイティブプロトコルAll-Javaドライバ
+
+図8-1-1.JDBCドライバのタイプ
+(fig8-1-1.bmp)
+
+これらのタイプを簡単に説明すると次のようになります。
+
+タイプ1.ODBCブリッジドライバ
+既存のODBCドライバをラップして使用することのできるドライバで、JDBC APIの中に用意されているものです。タイプ１のドライバは特殊なJDBCドライバを使用せずに利用できますが、クライアントに存在するODBCドライバにアクセスしますので、使用できるプラットフォームが限られてしまいます。ほとんどの場合、Windowsプラットフォームに限られます。また、JavaプログラムからODBCドライバを呼び出すので、クライアント側の負荷が高いだけでなく、パフォーマンスの問題も発生しやすいのであまり実用的ではありません。 JDBC-ODBCブリッジドライバなどはJDKの中に提供されているのでODBCが使用できる環境があれば簡単に使用することができます。
+
+タイプ2.ネイティブAPI Partly-Javaドライバ 
+Microsoft SQL-ServerのDB-LibraryやOracleのOCIなど、クライアント側のアプリケーションプログラミングインターフェイスを提供するライブラリの一部を呼び出すように実装されたJDBCドライバです。JDBCドライバからこれらのネイティブインターフェースを呼び出しますので、パフォーマンスは非常に早いのですが、クライアント側へのセットアップが必要になるなど、Javaの持つ本来のマルチプラットフォーム性を生かすことができません。また、クライアント側のモジュールを呼び出すことになるのでアプレットで使用することもできません。Javaアプリケーションで大量のデータ処理を行う場合には向いています。
+
+タイプ3.ネットプロトコルAll-Javaドライバ
+Firebird用のInterClientなど、ネイティブのJDBCドライバから中継サーバーを経由してデータベースサーバーに接続します。中継サーバーを使用することで、JDBCドライバをコンパクトに作成することができ、アプレットでも使用可能です。中継サーバーとデータベースサーバーとはネイティブなAPIを使用してデータ処理を行うため、パフォーマンスも非常に優れています。中継サーバーはデータベースサーバーと同じマシンに置かれることが多く、アプレットで使用する場合、データベースサーバー、中継サーバー、Webサーバーが同一のマシンに置かれるためサーバーの負荷が高くなる傾向があります。また、データベースサーバーが持っている機能であっても、中継サーバーがそれらの機能をサポートしていないため機能制限があることもあります。
+
+タイプ4.ネイティブプロトコルAll-Javaドライバ
+クライアントAPIライブラリとネットワークライブラリすべてをJDBCで実装して、データベースと直接データ通信を行う形態がタイプ4のJDBCドライバになります。このJDBCドライバは、かなり重たい実装になってしまいますが、データベースサーバーに用意されているすべての機能が使用できる利点があります。
+FirebirdのJDBCドライバであるInterClientはタイプ3となります。
+
+
+8-2.InterClientの概要
+InterClientはFirebirdおよびInterBase用のJDBCドライバです。タイプ3のドライバでInterServerと呼ばれる中間サーバーを経由してInterBaseサーバーと通信を行います。InterClientは100% Pure-Javaで書かれたJDBCドライバで、非常に軽いドライバのためアプレットで使用することも可能です。InterClientは中間サーバーであるInterServerとポート番号3060を使用して通信を行います。Firebirdの通信は3050を使用していますので、まったく別の通信であることがここからも分かります。
+
+図8-2-1.InterClientの構造
+(fig8-2-1.bmp)
+
+リスト8-2-1.servicesファイルの内容
+interserver      3060/tcp             # InterBase InterServer
+gds_db           3050/tcp             # InterBase Server
+
+InterClientはIBPhoenix社のWebサイトからWindows版およびLinux版を入手することができます。また本紙付属のCD-ROMにも納められています。
+JDBC 1.0規格に準拠したInterClient 1.6が必要な方は米国ボーランド社のWebサイトからダウンロードすることができます。
+InterClientの入手先（IBPhoenix社のWebサイト）
+http://www.ibphoenix.com/main.nfs?a=ibphoenixApp&page=ibp_download#INTERCLIENT
+  -InterClient 2.01 JDK 1.3 for Windows
+  -InterClient 2.01 JDK 1.3 for Windows
+
+InterClient 1.6およびInterClient 2.0(ボーランド社のWebサイト）
+http://info.borland.com/devsupport/interbase/opensource/
+
+
+8-2-1.InterClient 2.01 for Windowsの導入
+Windows版のInterClientを導入してみましょう。CD-ROMに納められているinterclient_201_Win32.zipを解凍して、setup.exeを起動します。図8-2-1-1のようなセットアップ画面が表示されます。[Next]ボタンを押すと、InterClientのインストール先の指定画面が表示されます（図8-2-1-2）。デフォルトでは"C:\Program Files\Firebird\InterClient"にインストールされますが、CLASSPATHが長くなってしまいますので、"C:\InterClient"などのパスにインストールすることをお奨めします。
+
+図8-2-1-1.InterClientのセットアップ画面
+（fig8-2-1-1.bmp)
+
+図8-2-1-2.インストール先の指定
+（fig8-2-1-2.bmp)
+
+[Next]ボタンを押すと、InterClientのスタートアップフォルダの指定画面が表示されます（図8-2-1-3）。デフォルトでは"Firebird SQL InterClient"というスタートアップフォルダが作成されます。
+
+図8-2-1-3.スタートアップフォルダの指定
+（fig8-2-1-3.bmp)
+
+[Next]ボタンを押すと、ディスクトップ上にアイコンを作成するかどうかの確認画面（図8-2-1-4）が表示されます。デフォルトでは、アイコン作成のチェックボックスがチェックされています。
+
+図8-2-1-4.スタートアップフォルダの指定
+（fig8-2-1-4.bmp)
+
+[Next]ボタンを押すと、これまでの設定の確認画面（図8-2-1-5）が表示されます。ここで[Install]ボタンを押すとInterClientのインストールが開始されます。
+
+図8-2-1-5.設定の確認
+（fig8-2-1-5.bmp)
+
+インストールが終了すると図8-2-1-6のようなインストールノートが表示されます。インストールノートにはservicesファイルへのInterServerのポートの指定などが書かれています。日本語訳をつけておきますので、インストールの内容に従い、設定を行ってください。
+
+図8-2-1-6.インストールノートの表示画面
+(fig8-2-1-6.bmp)
+
+インストールノート（日本語訳）
+編集注：校正時に日本語訳と差し替えます
+
+Installation Notes
+------------------
+
+InterServer
+
+1. Make sure that you have manually entered the following into your services file:
+interserver      3060/tcp             # InterBase InterServer
+The Services files can be found in c:\windows\services or in c:\winnt\system32\drivers\etc\services depending on your operating system.
+
+2. To set up and configure use isconfig.exe to determine whether you want InterServer to run as an application or as a service.
+
+To run as a service from the command line : interserver -s
+To run as an application from the command line : interserver
+To run using logging from the command line : interserver -l
+
+3. Make sure that your Java CLASSPATH is updated to point to the installed .jar files location
+
+Changes from the original Open Source release
+-----------------------------------------
+
+2001-11-06 Paul Beach
+* 20/dev/packages/interbase/interclient/Statement.java
+Bug No. 447462 submitted by Michael Wissenbacher.
+Memory leak when opening statements, inserting data and then closing statements.
+In executeUpdate() set OpenOnServer = true;  
+
+2001-10-03  Paul Beach
+* 20/dev/interserver/NetTCP.cpp:
+Handle windows sockets properly.
+InterServer used BSD socket conventions.
+On Windows NT, InterServer sockets would be left in a CLOSE_WAIT state until
+the system was rebooted or InterServer was stopped and restarted whilst
+on Windows 2000 InterServer sockets would remain in an ESTABLISHED state
+even though the Client processes on both systems had successfully
+disconnected by the JDBC connection.close() method. Since the application
+uses a large number of sockets over time, eventually the systems would run
+out of memory and hang, thus requiring a reboot.
+Change interserver to use Winsock 2 socket calls.
+
+* 20/dev/interserver/include.mak:
+FD_SETSIZE, increase default no. of avilable sockets on Windows from 64 to 256.
+
+2001-06-18  David Jencks
+* 20/dev/packages/interbase/interclient/PreparedStatement.java:
+Changed construction of BigDecimal objects for longs to use
+correct factory method instead of nonexistent constructor. 
+Problem discovered and fix provided by Michael Wyraz 
+(michael.wyraz@evermind.de)
+
+* 20/dev/interserver/IB_Defines.h:
+* 20/dev/interserver/IB_Statement.cpp:
+* 20/dev/interserver/interserver.cpp:
+Added sql logging to interserver, thanks to Micael Wyraz (
+michael.wyraz@evermind.de). Use -l command line switch (interserver -l).
+
+2001-02-18  David Jencks
+* 20/dev/interserver/IB_Catalog.cpp:
+* 20/dev/interserver/IB_Catalog.h:
+* 20/dev/interserver/NetTCP.cpp:
+Modified to make windows compilation more likely and removed
+buffer overflow problem.
+
+2001-02-06  David Jencks
+* 20/dev/firebird/build.xml:
+* 20/dev/interserver/IB_Catalog.cpp:
+* 20/dev/interserver/IB_Catalog.h:
+* 20/dev/interserver/IB_Statement.cpp:
+* 20/dev/packages/interbase/interclient/DatabaseMetaData.java:
+* 20/dev/packages/interbase/interclient/ErrorKey.java:
+* 20/dev/packages/interbase/interclient/JDBCNet.java:
+* 20/dev/packages/interbase/interclient/ResourceKeys.java:
+* 20/dev/packages/interbase/interclient/Resources.java:
+Modified databaseMetaData calls to work and correctly handle escaped wildcard characters.
+Calling getTables(null, null, null[]) generates an invalid query and exception.
+Calling getTables often (always?) will crash interserver. None of the methods 
+accepting parameters of the form namePattern were treating excaped wildcards properly.
+
+* 20/dev/packages/interbase/interclient/RemoteProtocolException.java:
+Modified to provide more information when protocol fails.
+
+* 20/dev/interserver/NetTCP.cpp:
+Modified to allow compile under RHlinux 7.0, gcc.
+
+2001-02-03  skywalker
+* 20/dev/interserver/Window.cpp:
+Changes as suggested by Ken Ritchards for win32 compiles.
+
+* 20/dev/README:
+* 20/dev/firebird/make.sh:
+* 20/dev/firebird/makeDeliverables.sh:
+* 20/dev/interserver/IB_Defines.h:
+* 20/dev/packages/Makefile.unix:
+* 20/dev/packages/interbase/interclient/Array.java:
+* 20/dev/packages/interbase/interclient/Crypter.java:
+* 20/dev/packages/interbase/interclient/IBTimestamp.java:
+* 20/dev/packages/interbase/interclient/PreparedStatement.java:
+* 20/dev/packages/interbase/interclient/ResultSet.java:
+* 20/dev/packages/interbase/interclient/Statement.java:
+Applied any changes made to the 1.6 tree to the 2.0 tree.  These are:
+1. All of  Torsten's mods mostly depreciation warnings, including some datetime stamp things and a few String(byte[], 0) call changes.
+2.  Fix for match on label and or name of column ResultSet.findColumn().
+3.  New feature Statement.getFetchSize() now returns a result (result was already around).
+4.  Test for end of a result set was in wrong place, could cause exceptions in some circumstances ResultSet.getNextCursorPosition().
+
+2000-12-27  tmcsys
+* 20/dev/packages/interbase/interclient/SQLDialectAdjustmentWarning.java:
+* 20/dev/packages/interbase/interclient/SQLDialectException.java:
+* 20/dev/packages/interbase/interclient/sqldialectadjustmentwarning.java:
+* 20/dev/packages/interbase/interclient/sqldialectexception.java:
+fix case of source files for class.
+
+* 20/dev/packages/interbase/interclient/XAConnection.java:
+* 20/dev/packages/interbase/interclient/XAResource.java:
+Compile errors: 
+XAConnection.java: Package javax.jts.xa doesn't exist, should be javax.transaction.xa 
+XAResource.java: SetTransactionTimeout should return BOOLEAN
+XAResource.Java: isSameRM, had missing interface.	
+
+[Next]ボタンを押すと、インストールの完了画面（図8-2-1-7)が表示されます。ここで、[Finish]ボタンを押すと、図8-2-1-8のような[InterServer Configuration Utility]ダイアログボックスが表示されます。
+
+[InterServer Configuration Utility]ダイアログボックス
+(fig8-2-1-8.bmp)
+
+
+[InterServer Configuration Utility]ダイアログボックスではInterServerの次の設定を行うことができます。
+	・ルートディレクトリの設定
+	・サービスで動かすかアプリケーションとして動かすか
+	・自動起動するかどうか
+
+また、サービスに設定されているときはInterServerの開始・終了を行うことができます。
+それではInterClientに納められているサンプルを利用して、InterClient経由でFirebirdに接続してみましょう。JDKがインストールされていない場合は、JDKのインストールが必要となります。
+まず、InterServerを起動します(C:\InterClient\bin\interserver.exe)。続いて、コマンドプロンプトを表示し、コマンドラインから次のようにInterClientのサンプルを起動します。図8-2-1-9のようなJavaアプリケーションが表示されます。ここで、ホスト名、データベース名、ユーザー名、パスワードを指定して接続確認を行います。図8-2-1-9ではFirebirdのサンプルであるEMPLOYEEデータベースに接続しています。
+
+	C:\InterClient>java interbase.interclient.utils.CommDiag -cp c:\interclient\intercient.jar
+
+図8-2-1-9.InterClient Communication Diagnostics
+(fig8-2-1-9.bmp)
+
+
+8-2-2.InterClient for Linuxのインストール
+InterClient 2.01 for LinuxはRed Hat 7.1以降に対応しています。ここでRed Hat 7.3の環境にインストールしてみましょう。ここでは、interclient_201_linux-xinetd.tar.gzが/tmpにコピーされているものとします。インストール方法は手順8-2-2-1のようになります。
+
+手順8-2-2-1.InterClient 2.01 for Linuxのインストール
+	インストール先のディレクトリの作成(/usr/InterClient)
+	[root@linuxpc tmp]# mkdir /usr/InterClient
+	/usr/InterClientにファイルを解凍
+	[root@linuxpc tmp]# tar zxvf interclient_201_linux-xinetd.tar.gz -C /usr/InterClient
+	interclient.jar
+	interclient-core.jar
+	interclient-res.jar
+	interclient-utils.jar
+	interserver
+	xinetd.d/interserver
+	readme
+	CommDiag.html
+	xinetdにInterServerの起動ファイルをコピー
+	[root@linuxpc InterClient]# cp /usr/InterClient/xinetd.d/interserver /etc/xinetd.d/
+	xinetdを再起動してInterServerを起動
+	[root@linuxpc InterClient]# /etc/rc.d/init.d/xinetd restart
+	xinetdを停止中: [  OK  ]
+	xinetdを起動中: [  OK  ]
+
+Linux版のInterClientにはxinetdでInterServerを起動するためのスクリプト（リスト.8-2-2-2）が付属しています。こちらのスクリプトにより、InterServerはxinetdの起動時に自動的に起動します。
+
+リスト8-2-2-2.interserverの起動スクリプト(/etc/xinetd.d/interserver)
+# default: on
+# description: Interserver, java JDBC for Interbase/Firebird
+
+service interserver
+{
+        type = UNLISTED
+		port	= 3060
+        protocol = tcp
+		socket_type	= stream
+		wait 	= no
+		#	only_from = localhost
+		user	= root
+		server	= /opt/interbase/interclient/interserver
+        server_args = -l
+        log_type = FILE /opt/interbase/interclient/xinetd.log
+        log_on_success += PID
+        log_on_success += HOST
+        log_on_success += USERID
+        log_on_success += EXIT
+        log_on_success += DURATION
+		log_on_failure	+= USERID
+		log_on_failure	+= HOST
+		disable = no
+        per_source = UNLIMITED
+}
+
+
+8-3.InterClientの簡単な使い方
+最後に、InterClientを使った簡単なサーブレットを紹介しておきましょう。サーブレット環境の構築方法および具体的なInterClientの使い方は第4部で説明します。ここでは、InterClientがどう呼び出されているかを確認してください。
+InterClientを利用してFirebirdに接続するには次のようなコードを記述します。
+
+      //InterClienrドライバの登録
+      Class.forName ("interbase.interclient.Driver").newInstance ();
+      //データベースの場所の指定
+       String url = "jdbc:interbase://localhost/c:\\program files\\firebird\\examples\\employee.gdb";
+        //接続
+      java.sql.Connection con = DriverManager.getConnection(url, "SYSDBA", "masterkey");
+
+JDBCドライバをJDBCドライバマネージャに登録してから、接続先のURLおよびユーザー名とパスワードを設定して接続を行います。InterClientのドライバは"interbase.interclient.Driver"となっています。接続先のURLは"jdbc:interbase://<サーバ名/パス>"となります。
+リスト8-3-1は従業員データベースの従業員テーブルのデータを表示しているサーブレットです。接続以外は基本的にJDBCを使ったプログラムになるので、他のデータベースを使う場合とほとんど変わりません。
+
+リスト8-3-1.ICServlet.java
+package interclientdemo;
+
+import javax.servlet.*;
+import javax.servlet.http.*;
+import java.io.*;
+import java.util.*;
+import interbase.interclient.*;
+import java.sql.*;
+
+public class ICServlet extends HttpServlet {
+  private static final String CONTENT_TYPE = "text/html; charset=Shift_JIS";
+
+  //グローバル変数の初期化
+   java.sql.Connection con; //データベースとの接続用
+
+  //データベースへの接続を行うconnectDB()メソッド
+  public void connectDB() {
+  try {
+      //firebirdへの接続に必要な変数
+      //InterClienrドライバの登録
+      Class.forName ("interbase.interclient.Driver").newInstance ();
+        //データベースの場所の指定
+        String url = "jdbc:interbase://localhost/c:\\program files\\firebird\\examples\\employee.gdb";
+        //接続
+        con = DriverManager.getConnection(url, "SYSDBA", "masterkey");
+  } catch (Exception e) {
+    e.printStackTrace();
+  }
+ }
+
+  public void init(ServletConfig config) throws ServletException {
+    super.init(config);
+  }
+
+  /**後始末*/
+  public void destroy() {
+  }
+
+  //HTTP GET リクエストの処理
+  public void doGet(HttpServletRequest request, HttpServletResponse response)
+      throws ServletException, IOException {
+
+    //Firebirdへの接続
+    connectDB();
+    //出力するHTMLストリームの設定
+    response.setContentType("text/html;charset=sjis");
+    PrintWriter out = new PrintWriter(
+      new OutputStreamWriter(response.getOutputStream(), "SJIS"));
+    out.println("<html>");
+    out.println("<head><title>InterClientを利用したサンプル</title></head>");
+    out.println("<body>");
+    out.println("<h1><center>InterClientを利用したサンプル</center></h1><BR>");
+    try {
+         //SQL文の発行の準備
+         java.sql.Statement stmt = con.createStatement();
+         //SQL文の実行
+         java.sql.ResultSet rs=stmt.executeQuery("SELECT * FROM EMPLOYEE");
+         //テーブル形式で書き込み
+          out.println("<CENTER>");
+          out.println("<TABLE BORDER=3><TR><TH>従業員番号</TH><TH>名字</TH><TH>名前</TH></TR>");
+          //すべてのデータを表示する
+          while (rs.next()) {
+               //テーブルの行の設定
+               out.println("<TR>");
+               //各項目の設定:従業員番号の表示
+               out.println("<TD>"+rs.getString("EMP_NO")+"</TD>");
+               //各項目の設定:名字の表示
+               out.println("<TD>"+rs.getString("LAST_NAME")+"</TD>");
+               out.println("<TD>"+rs.getString("FIRST_NAME")+"</TD>");
+               //テーブルの行の終わり
+               out.println("</TR>");
+          }
+          //テーブル作成の終了
+          out.println("</TABLE><CENTER><BR>");
+          //結果セットを閉じる
+          rs.close();
+          //データベースを閉じる
+          con.close();
+    } catch (Exception ex) {
+          ex.printStackTrace();
+    }
+    //HTMLドキュメントの終了
+    out.println("<HR>");
+    out.println("<DIV align='right'><I>copyright(c) 2002 Daiju Kato</I></DIV>");
+    out.println("</body></html>");
+    out.close();
+  }
+
+}
+
+図8-3-1.InterClientを使ったサーブレットを実行したところ
+(fig8-3-1.bmp)
+
+
+メモ：JDBC 1.0とJDBC 2.0
+JDBC 1.0とJDBC 2.0でデータベースサーバーとの接続方法が異なります。もちろん、JDBC 1.0の方法でJDBC 2.0に対応しているJDBCドライバを使用して接続することは可能です。
+JDBCドライバを使用するにはドライバをロードする必要があります。JDBCドライバによって若干ロードの仕方が違いますが、Driverクラスのインスタンスを作成し、使用するドライバを宣言します。InterClientを使用する場合は、InterClientのドライバクラスであるinterbase.interclient.Driverをパラメータに渡します。JDBC 2.0の場合では、DataSourceクラスという新しいクラスが用意されており、こちらのクラスを使用してJDBCドライバをロードすることができます。JDBC 2.0ではJNDIというJavaからディレクトリサービスを使用することができるようになっています。JNIDIが使用できるようになっていますので、接続するデータベースサーバーの情報をディレクトリサービスに登録することができます。また、Enterprise JavaBeans(EJB)やJavaBeansでJDBCドライバを通じてデータベースサーバーにアクセスすることを想定した使用方法がサポートされています。
+
+JDBC 1.0の場合
+        //Driverクラスを使用してInterClientをロード
+        java.sql.Driver d=(java.sql.Driver) Class.forName(
+          "interbase.interclient.Driver").newInstance();
+JDBC 2.0の場合
+       //DataSourceクラスを使用してInterClientをロード
+       interbase.interclient.DataSource ds = 
+              new interbase.interclient.DataSource();  
+
+JDBCドライバのロードが終了したら、データベースサーバーへの接続を行います。接続先のデータベースの情報は"jdbc://<ドライバー名>/<パス>"といった形でURL形式で指定します。接続時にユーザー名、パスワードなどの情報が必要になりますので、ユーザー名などの情報はPropertiesクラスを利用します。JDBC 2.0では、DataSourceクラスのメソッドにサーバー名、データベース名などを管理するプロパティが追加されていますので、メソッドを通じてこれらの内容を設定します。また、日本語を使用する場合はキャラクターセットの指定を行い、データベースと同じキャラクターセットを指定して接続する必要があり、InterClientではcharSetというプロパティで指定します。データベースへの接続はConnectionクラスを利用します。
+
+JDBC 1.0の場合
+        //ユーザー名などの情報を管理するオブジェクトを宣言
+        java.util.Properties prop = new java.util.Properties();
+        //接続するURLの宣言
+        String url = "jdbc:interbase://linuxpc/opt/interbase/examples/employee.gdb";
+        //ユーザー名の設定
+        prop.put("user","SYSDBA");
+        //パスワードの設定
+        prop.put("password","masterkey");
+        //キャラクターセットの指定
+        prop.put("charSet","SJIS");
+        //InterBaseサーバーに接続
+        java.sql.Connection con = DriverManager.getConnection(url,prop);
+JDBC 2.0の場合
+        //サーバー名の設定
+        ds.setServerName("linuxpc");
+        //パスの設定
+        ds.setDatabaseName("/opt/interbase/examples/employee.gdb");
+        //キャラクターセットの指定（SJISの場合)
+        ds.setCharSet (interbase.interclient.CharacterEncodings.SJIS);
+        //InterBaseに接続を実施(ユーザー名、パスワード)
+        java.sql.Connection con = ds.getConnection("SYSDBA","masterkey");

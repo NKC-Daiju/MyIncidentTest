@@ -1,0 +1,242 @@
+5-5.ストアドプロシージャについて
+
+ストアドプロシージャは、Firebirdのプロシージャとトリガー言語で書かれ、データベースのメタデータの一部として格納される独立プログラムです。ストアドプロシージャを作成した後は、アプリケーションから直接呼び出したり、SELECT 文でテーブルやビューの代わりにプロシージャを用いることができます。ストアドプロシージャはアプリケーションから入力パラメータを受け取り、アプリケーションへ値を返します。
+ストアドプロシージャを使用する利点は次のとおりです。
+	・モジュール設計
+		ストアドプロシージャは，同じデータベースをアクセスする複数のアプリケーションで
+		共有できるので，コードの重複をなくし，アプリケーションのサイズを小さくできます。
+	・保守の簡略化
+		ストアドプロシージャが更新されると，変更は自動的に，そのプロシージャを使うすべての
+		アプリケーションで反映され，再びコンパイルしたりリンクする必要はありません。アプリ
+		ケーションはクライアントごとに1 回だけコンパイルされ，最適化されます。
+	・データベースのパフォーマンスの向上
+		ストアドプロシージャは，クライアントではなくサーバーにより実行され，ネットワー
+		ク通信量を減らし，特にリモートクライアントアクセスでのパフォーマンスが向上します
+Firebirdでは次の2種類のストアドプロシージャをサポートしています。一般的に、ストアドプロシージャというと実行可能なプロシージャを思い浮かべます。入力パラメータを渡し、結果として出力パラメータを受け取ります。サーバー側で実行される独立したサブルーチンのイメージです。Firebirdでは実行可能なものだけでなく、SELECT文を利用して呼び出すプロシージャを作成することができます。こちらのプロシージャを使用するときには最低一つ以上の出力パラメータの設定が必要になり、結果は行で返ってきます。
+	・選択プロシージャ
+	  アプリケーションのSELECT文でテーブルやビューの代わりに指定したストアドプロシージャで、一つもしくは複数の値が戻されるように出力パラメータを指定しなければならない。
+	・実行可能プロシージャ
+	  アプリケーションでEXECUTE PROCEDUREで呼び出されるストアドプロシージャで、戻り値の設定は必要ない。
+ストアドプロシージャはコマンドラインで使用できるISQLまたはIntractive SQLを使用して作成します。ストアドプロシージャを作成する構文は次の通りです。
+
+	CREATE PROCEDURE name
+	   [ (param datatype [, param datatype ...])]
+       [RETURNS ( param datatype [, param datatype ...])]
+    AS
+       <procedure_body>;
+       <procedure_body> =
+           [ <variable_declaration_list>]
+           <block>
+       <variable_declaration_list> =
+	DECLARE VARIABLE var datatype;
+    [DECLARE VARIABLE var datatype; ...]	
+    <block> =
+	BEGIN
+		<compound_statement>
+		[ <compound_statement> ...]
+	END
+		<compound_statement> =
+		{ <block> | statement;}
+
+引数                    		説明
+---------------------------------------------------------------------------------------------------
+name				プロシージャ名。データベース内にあるプロシージャ，テーブル，
+					ビューの中で一意なものにします。
+param <datatype>	呼び出しプログラムが，プロシージャに値を渡すのに使用する入
+					力パラメータ
+					param：プロシージャの変数に一意な入力パラメータ名
+					<datatype>：Firebirdのデータ型
+RETURNS				プロシージャが値を呼び出しプログラムに返すのに使用する出力
+param <datatype>	パラメータ
+					param：プロシージャの変数に一意な出力パラメータ名
+					<datatype>：Firebirdのデータ型
+					プロシージャ本文にSUSPEND 文があると，その時点で出力パラ
+					メータの値を返します。
+AS					プロシージャのヘッダーと本文を区切るキーワード
+DECLARE VARIABLE	プロシージャ内だけで使用されるローカル変数を宣言します。各
+var <datatype>		宣言の前にDECLARE VARIABLE 文を付け，その後にセミコロン
+					（;）を続けます。var はローカル変数名で，プロシージャ内の変数
+					の中で一意なものにします。
+statement			Firebirdのプロシージャとトリガー言語の単一文。各文（BEGIN
+					とEND を除く）の末尾にはセミコロン（;）を付けなければなりま
+					せん。
+
+Firebirdではトリガーとストアドプロシージャで使用できる制御文を持った簡単なプログラミング言語を持っています。このプログラミング言語は次のものを持っています。
+	・SQL データ操作文（INSERT 文，UPDATE 文，DELETE 文，単一SELECT 文）。カーソル
+	・データベースサーバーとジェネレータでリンクされた，UDF を含むSQL 演算子と式
+	・代入文，フロー制御文，コンテキスト変数，イベント通知文，例外，エラー処理文を含む，SQL 仕様の強力な拡張
+基本的にこのプログラミング言語はストアドプロシージャとトリガーの両方で使用できますが、一部どちらかでしか使えないものがあります。
+	・コンテキスト変数は，トリガー独特のものです。
+	・入出力パラメータ，および値を返すSUSPEND 文とEXIT 文は，ストアドプロシージャ独特のものです。
+次の表は、ストアドプロシージャとトリガー言語の拡張の概要です。
+
+表5-5-1.プロシージャとトリガー言語の拡張
+文	                    		説明
+---------------------------------------------------------------------------------------------------
+BEGIN....END					一括して実行する文のブロックを定義します。BEGIN
+								キーワードがはブロックの始まりを，END キーワードが
+								終わりを示します。BEGIN とEND の後にセミコロンは付
+								きません。
+variable = expression 			expression で指定した式の値を，variable で指定した変数，
+								ローカル変数，入力パラメータまたは出力パラメータのい
+								ずれかに代入する代入文
+/* comment_text */				プログラマのコメントを入力します。comment_text の行数
+								には制限はありません。
+EXCEPTION						指定された例外を発行します。例外とは，ユーザー定義の
+exception_name					エラーで，WHEN で処理できます。
+EXECUTE PROCEDURE				ストアドプロシージャproc_name を実行します。プロシー
+proc_name [var [, var...]]		ジャ名の後に列記された入力引数を使用し，
+[RETURNING_VALUES				RETURNING_VALUES の後の出力引数に値を返します。
+var [, var ...]]				入出力パラメータはプロシージャ内で定義された変数でな
+								ければなりません。プロシージャはネストされたプロシー
+								ジャおよび再帰呼び出しが可能です。
+EXIT							プロシージャの最終のEND 文にジャンプします。
+FOR <select_statement> DO		<select_statement> で抽出した有効行ごとに，DO の後に続
+<compound_statement>			く文や文ブロックを繰り返し実行します。
+								<select_statement> : 通常のSELECT 文と同じですが，
+								INTO 句を最後に挿入しなければなりません。
+<compound_statement>			プロシージャとトリガー言語で記述した1 つの文，
+								またはBEGIN とEND で囲んだ文のブロック
+IF (<condition>)				<condition> で指定した条件をチェックし，TRUE（真）の
+THEN <compound_statement>		場合は，THEN 以下の文または文のブロックを実行しま
+[ELSE <compound_statement>]		す。TRUE でない場合は，ELSE 以下の文または文のブ
+								ロックを実行します。ELSE 以下の文は任意です。
+								<condition> : TRUE（真），FALSE（偽），UNKNOWN
+								（不定）のいずれかを値とする論理式。一般的には，比較
+								演算子のオペランドとしての2 つの式を使います。
+POST_EVENT 						event_name event_name イベントを通知します。
+SUSPEND 						SELECT プロシージャ内で次の動作を行います。
+								呼び出しアプリケーションから次のFETCH が出されるま
+								でプロシージャの実行を中断します。
+								戻り値がある場合は，アプリケーションに返します。
+								実行可能プロシージャには勧められません。
+WHILE (<condition>)				<condition> の条件がTRUE（真）である限り，
+DO <compound_statement>			<compound_statement> の文を実行し続けます。最初の
+								<condition> をチェックした結果がTRUE の場合は，
+								<compound_statement> が実行されます。このシーケンス
+								は<condition> がTRUE でなくなるまで繰り返されます。
+WHEN							エラー処理文。指定されたエラーのいずれかが発生する
+{<error> [, <error> ...] | ANY}	と，<compound_statement> の文が実行されます。WHEN
+DO <compound_statement>			文を指定する場合は，文のブロックの最後のEND の直前
+								に入力しなければなりません。
+								<error> : 次のいずれかです。
+								EXCEPTION exception_name
+								SQLCODE errcode
+								GDSCODE number
+								ANY : すべてのエラーを処理することを指定します。
+
+DSQLを使用してストアドプロシージャを作成していきます。
+ストアドプロシージャを使用するには、ユーザーがそのストアドプロシージャの作成者であるか、そのストアドプロシージャのEXECUTE特権を与えられていなければなりません。GRANT文の拡張子がEXECUTE 特権を割り当て、REVOKE文の拡張子がEXEUCTE 特権を取り消します。ストアドプロシージャそのものが、ユーザーがアクセス権を持っていない、あるいは持つべきではないテーブルやビューをアクセスする必要があることがあります。ストアドプロシージャを作成後、ストアドプロシージャを利用するユーザーが必要な権限を持っているかどうか確認してみる必要があります。
+
+a)権限について
+すべてのユーザーがデータを更新できてしまうと、多くの問題が発生します。これらの問題を解決する方法として、リレーショナルデータベースには権限という概念があります。この権限によってどのユーザーが、データの閲覧、更新、削除、追加などができるかどうかを管理していくわけです。権限は一般的に特権と呼ばれます。
+通常、スキーマの作成者とスーパーユーザー(FirebirdではSYSDBA)だけが作成したスキーマをフルコントロールできるすべての特権を持っています。Firebirdでは特権は表5-5-2のように分類されます。これらの特権を付加していくことで、作成者以外のユーザーがデータを閲覧したり、更新したりすることができるのです。
+
+表5-5-2.Firebirdの特権
+特権		実行できる動作
+-----------------------------------------------------------------------------------------
+ALL 		SELECT ，DELETE ，INSERT ，UPDATE ，EXECUTE ，REFERENCESのすべての権限を持つ
+SELECT 		テーブルまたはビューから行を抽出できる
+DELETE 		テーブルまたはビューから行を削除できる
+INSERT 		テーブルまたはビューに行を挿入できる
+UPDATE 		テーブルまたはビューの列の現在値を変更する。指定した一部の列だけ
+		に限定することができる
+EXECUTE 	ストアドプロシージャを実行できる
+REFERENCES 	外部キーで指定される列を参照できる。少なくとも一次キーに含まれる
+		すべての列に REFERENCES 特権を設定しなければならない。
+
+特権を設定するにはGRANT構文を使用します。特定のユーザーに特権をセットすることもできますし、PUBLICというキーワードを使用してすべてのユーザーに対して設定することもできます。また、ロールに割り当てることもできます。特権を割り当てるだけでなく、特権を割り当てる権限をユーザーやロールに与えることも可能です。
+
+GRANT構文：
+GRANT < privileges> ON [TABLE] { tablename | viewname}
+	TO { <object> | <userlist> | GROUP UNIX_group}
+	| EXECUTE ON PROCEDURE procname TO { <object> | <userlist>
+	| < role_granted> TO {PUBLIC | < role_grantee_list>}};
+	< privileges> = {ALL [PRIVILEGES] | < privilege_list>}
+
+引数			説明
+-------------------------------------------------------------------------------
+privilege_list		 許可する特権の名前のリスト。指定できる値は，SELECT ，
+					 DELETE ，INSERT ，UPDATE ，およびREFERENCES 。
+col 				 許可される特権が適用される列
+tablename 			 許可される特権が適用される既存のテーブル名
+viewname 			 許可される特権が適用される既存のビュー名
+GROUP unix_group 	 /etc/groupに定義されているグループ名。
+object 				 既存のプロシージャ，トリガー，またはビューの名前。
+userlist 			 isc4.gdbに登録されているユーザー名，またはCREATE ROLE文で
+					 作成されたロール名。
+WITH GRANT			 GRANT文で指定された特権のGRANT特権をuserlistに与えること
+OPTION				 を指定する
+rolename 			 CREATE ROLE文で作成された既存のロール名。
+role_grantee_list 	 ロール（rolename）が与えられるユーザーのリスト。ユーザーは
+				 	isc4.gdbに登録されていなければなりません。
+WITH ADMIN			 role_grantee_listに指定されているロールに GRANT特権を与えるこ
+OPTION				 とを指定する
+
+
+特権の削除はREVOKE構文で行います。使い方はほとんどGRANT文と同じです。たとえば、会社マスターのINSERT特権をESTIMATEユーザーから外す場合は次のように行います。
+
+  REVOKE INSERT ON COMPANY FROM estimate;
+  
+同様に、CKECK_LOGINプロシージャの実行権をはずす場合は次のように行います。
+
+  	REVOKE EXECUTE ON PROCEDURE CHECK_LOGIN FROM estimate;
+
+このようにGRANTとREVOKEをうまく使用していくことで、スキーマの特権を管理していくことができます。
+
+REVOKE構文：
+REVOKE [GRANT OPTION FOR]
+	< privileges> ON [TABLE] { tablename | viewname}
+	FROM { <object> | <userlist> | < rolelist> | GROUP UNIX_group}
+	| EXECUTE ON PROCEDURE procname
+	FROM { <object> | <userlist>}
+	| < role_granted> FROM {PUBLIC | < role_grantee_list>}};
+	< privileges> = {ALL [PRIVILEGES] | < privilege_list>}
+
+引数			説明
+------------------------------------------------------------------------------------
+privilege_list 		取り消す権限名のリスト。指定できる値は，SELECT ，DELETE ，
+					INSERT ，UPDATE ，REFERENCES 。
+GRANT OPTION FOR 	REVOKE文で指定した特権の付与権限をuserlistから取り消す。
+					object と同時には使用できない
+col					特権を取り消す対象となる列
+tablename 			特権を取り消す対象となる既存のテーブル名
+viewname 			特権を取り消す対象となる既存のビュー名
+GROUP unix_group 	/etc/groupに定義されているグループ名
+object 				特権を取り消されるユーザーか既存のデータベースオブジェクト名
+userlist 			特権を取り消されるユーザーのリスト
+rolename 			CREATE ROLE文で作成された既存のロール名
+role_grantee_list 	rolenameに割り当てられているユーザーのリスト。ユーザーは
+					isc4.gdbに登録されていなければならない。
+
+
+b)ロールについて
+Firebirdにはロールという機能が提供されています。ロールはSQL-99にも規定されており、ある特定のセキュリティを持つオブジェクトの名前を作成できる機能です。ロールはCREATE ROLEというSQL構文で作成することができます。たとえば、administratorというロールを作成する場合は、例5-5-1のように作成します。
+
+	例5-5-1.ロールの作成
+	$./isql -U SYSDBA -P masterkey
+	Use CONNECT or CREATE DATABASE to specify a database
+	SQL> CONNECT '/home/db/estimate.gdb';
+	Database:  '/home/db/estimate.gdb' 
+	ロールの作成
+	SQL> CREATE ROLE administrator;
+	SQL>QUIT;
+
+これで、administratorというロールの使用が可能になります。作成したロールを使用するには、データベースに接続するときにロールをオプションで指定します。たとえば、isqlを使用するときは、ROLEオプションの後にロールの名前を追加します。
+
+	$./isql -U SYSDBA -P masterkey
+	Use CONNECT or CREATE DATABASE to specify a database
+	SQL> CONNECT '/home/db/estimate.gdb' ROLE administrator;
+	Database:  '/home/db/estimate.gdb', Role:  ADMINISTRATOR
+	SQL>QUIT;
+
+作成したロールにいろいろな権限を持たせることができます。ちょうど、管理を行いたいときだけスーパーユーザーでログインして処理を行う場合などに似ています。SYSDBAを使うことなく、特定のロールにテーブルの作成・更新機能を追加しておくことでデータのメンテナンスを実現することができるでしょう。
+
+CREATE ROLE構文：
+	CREATE ROLE rolename;
+
+       引数		説明
+--------------------------------------------------------------------------------
+rolename 		ロールに関連付ける名前。データベース内のロール名間で
+				一意でなければなりません
+
