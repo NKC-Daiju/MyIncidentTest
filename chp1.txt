@@ -1,78 +1,80 @@
-��ꕔ Firebird�̊T�v
+第一部 Firebirdの概要
+
+練習用入力
 
 
-��P�� Firebird�Ƃ�
+第１章 Firebirdとは
 
-1-1.���p�x�[�X�̃f�[�^�x�[�X���琶�܂ꂽ�I�[�v���\�[�X�̃f�[�^�x�[�X
-�I�[�v���\�[�X�̃f�[�^�x�[�X�Ƃ����Ɠǎ҂݂̂Ȃ����PostgreSQL��MySQL�Ȃǂ��v�������ׂ�Ǝv���܂��B�܂��A���p�x�[�X�ł͕����ꂽ�ꍇ�AOracle�ASybase�AInformix�ADB2�Ȃǂ��v�������ׂ�̂ł͂Ȃ��ł��傤���H�{�[�����h�Ђ�JBuilder��Delphi�𗘗p����Ă���l�ł���Εč�Borland Software Corporation��(�ȉ��ABorland�Ђƕ\�L�j�̒񋟂��Ă���InterBase�Ƃ����f�[�^�x�[�X��m���Ă���ł��傤�B�ł�Firebird�Ƃ����f�[�^�x�[�X�ɂ��Ă͂ǂ��ł��傤���H�����AFirebird��m���Ă���l�̓f�[�^�x�[�X���i�ɔ��ɏڂ��������ƌ�����ł��傤�B���̖{�ł��ꂩ��������Ă���Firebird��InterBase���x�[�X�Ƃ��Ă��܂��B���ۂ́A�x�[�X�Ƃ�������InterBase���琶�܂ꂽ�I�[�v���\�[�X�̃f�[�^�x�[�X�ŁA����InterBase�Ɗ��S�݊��̂��̂ł���ƌ����Ă����Ǝv���܂��B��ʓI�ɏ��p�̃f�[�^�x�[�X���I�[�v���\�[�X�Ƃ��Č��J����邱�Ƃ͂܂�����܂��񂪁AFirebird�͂���ȓ���̌o�܂̒��Ő��܂ꂽ���i�ł��BInterBase�́A���Ăł�5,6�N�O�܂�Oracle��Informix�̋������i�Ƃ��Ĉʒu�t����A����2,3�N�͏��p�p�b�P�[�W�̑g�ݍ��ݗp�⃏�[�N�O���[�v���x���Ŏg�p�ł���Ǘ����قƂ�ǂ���Ȃ��f�[�^�x�[�X�Ƃ��Ĕ̔�����Ă������i�ł��B����Ȓ������Ԋ�n�̃V�X�e���̐M������|���f�[�^������InterBase����Firebird�͐��܂�܂����B�����āA2002�N3��12����Firebird Version 1.0�̌��J�ȗ��A�������̊J���҂�InterBase����Firebird�Ɉڍs������A���p�x�[�X�̐��i�𗘗p���Ă������[�U�[��Firebird�̎g�p���n�߂Ă��܂��B���p�x�[�X�̃f�[�^�x�[�X���琶�܂ꂽ�I�[�v���\�[�X�̃f�[�^�x�[�X�AFirebird�̒񋟂���D�ꂽ�@�\��̌����Ă݂܂��傤�B
+1-1.商用ベースのデータベースから生まれたオープンソースのデータベース
+オープンソースのデータベースというと読者のみなさんはPostgreSQLやMySQLなどを思い浮かべると思います。また、商用ベースでは聞かれた場合、Oracle、Sybase、Informix、DB2などを思い浮かべるのではないでしょうか？ボーランド社のJBuilderやDelphiを利用されている人であれば米国Borland Software Corporation社(以下、Borland社と表記）の提供しているInterBaseというデータベースを知っているでしょう。ではFirebirdというデータベースについてはどうでしょうか？もし、Firebirdを知っている人はデータベース製品に非常に詳しい方だと言えるでしょう。この本でこれから説明していくFirebirdはInterBaseをベースとしています。実際は、ベースというよりもInterBaseから生まれたオープンソースのデータベースで、今はInterBaseと完全互換のものであると言っていいと思います。一般的に商用のデータベースがオープンソースとして公開されることはまずありませんが、Firebirdはこんな特殊の経緯の中で生まれた製品です。InterBaseは、欧米では5,6年前までOracleやInformixの競合製品として位置付かれ、ここ2,3年は商用パッケージの組み込み用やワークグループレベルで使用できる管理がほとんどいらないデータベースとして販売されてきた製品です。こんな長い期間基幹系のシステムの信頼性を培うデータを扱うInterBaseからFirebirdは生まれました。そして、2002年3月12日のFirebird Version 1.0の公開以来、数多くの開発者がInterBaseからFirebirdに移行したり、商用ベースの製品を利用していたユーザーがFirebirdの使用を始めています。商用ベースのデータベースから生まれたオープンソースのデータベース、Firebirdの提供する優れた機能を体験してみましょう。
 
 
-1-2.InterBase�ɂ���
-Firebird���������O��Borland�Ђ��񋟂��Ă���InterBase�Ƃ����f�[�^�x�[�X��m��Ȃ����̂��߂ɁAInterBase�ɂ��Đ������Ă����܂��傤�B
-InterBase��1986�N�ɍŏ��̃o�[�W�����������[�X���ꂽ���ɗ��j�̂��郊���[�V���i���f�[�^�x�[�X�ł��BInterBase�͓�����InterBase Software Corp.��dBASE��̔����Ă���AshtonTate�Ђւ̔����ABorland�Ђ�AshtonTate�Ђ̔����Ȃǂɂ��ABorland�Ђ̐��i�ƂȂ�܂����B�������ABorland�Ђ�SBU(���ƕ����j�̓����╪�Љ��A�����čċz���Ȃǂ�����A���x�����i�̏��ł̊�@�Ɋׂ������i�ł��B�������A�D�ꂽ�Z�p�������i�͂Ȃ��Ȃ邱�Ƃ͂Ȃ��A���̐��i�̗ǂ��𗝉����A���ɑ�ʂɎg�p���Ă��郂�g���[���ЂȂǂ̃r�b�N���[�U�[�ADelphi��JBuilder�Ȃǂ̃{�[�����h�Ђ̐��i�Ƃ̐e�a���̍����������]�����Ă���S���E���̊J���҂Ȃǂ���̐��i�p���̃��N�G�X�g�ɂ��A���i���Ȃ��Ȃ��@�����x�����x���Ƃ�Ă��܂����B�Â��̓t�B���f���t�B�A�،�������ł̗��p����A�j���[�W�[�����h��PC Direct�Ȃǂ̃t�����`���C�Y�X�ł̔̔��Ǘ��V�X�e���Ȃǔ��ɑ����̓������Ⴊ���݂��Ă��܂��B���{�����ł��G�A�[�j�b�|���̋q���斱���Ǘ��V�X�e���������Ǘ��V�X�e���A�݂Ȃ��񂪕a�@�ɍs������ɒ��ܖ�ǂŖ���󂯎��Ǝv���܂����A���̂Ƃ��ɖ�̊T�v����p�Ȃǂ������ꂽ�����󂯎��Ǝv���܂����A�����̖�̏��y�ьڋq�Ǘ����s���Ă��钲�ܖ�ǌ����̒��܃��Z�v�g�V�X�e���A�J�ƈ�����̓����������摜�t�@�C�����O�V�X�e���A�J�[�h��Ќ����̃M�t�g�J�[�hOCR�V�X�e���A�\�j�[�E�e�N�g���j�N�X�Ђ̃m�����j�A�E�j���[�X�ҏW�V�X�e���ł���N�C�b�N�T�[�o�ȂǁA��n�E���n��킸���ɗl�X�ȗp�r�Ŏg�p����Ă��܂��B
-InterBase���ǂ�ȋ@�\��񋟂��Ă��邩��Firebird�̋@�\�����ōs�����̂Ƃ��āAInterBase�̓������ȒP�Ɍ����\���Ǝ��̂悤�ɂȂ�܂��B
+1-2.InterBaseについて
+Firebirdを説明する前にBorland社が提供しているInterBaseというデータベースを知らない方のために、InterBaseについて説明していきましょう。
+InterBaseは1986年に最初のバージョンがリリースされた非常に歴史のあるリレーショナルデータベースです。InterBaseは当時のInterBase Software Corp.がdBASEを販売していたAshtonTate社への買収、Borland社のAshtonTate社の買収などにより、Borland社の製品となりました。しかし、Borland社のSBU(事業部制）の導入や分社化、そして再吸収などがあり、何度も製品の消滅の危機に陥った製品です。しかし、優れた技術を持つ製品はなくなることはなく、その製品の良さを理解し、非常に大量に使用しているモトローラ社などのビックユーザー、DelphiやJBuilderなどのボーランド社の製品との親和性の高さを高く評価している全世界中の開発者などからの製品継続のリクエストにより、製品がなくなる危機を何度も何度も免れてきました。古くはフィラデルフィア証券取引所での利用から、ニュージーランドのPC Directなどのフランチャイズ店での販売管理システムなど非常に多くの導入事例が存在しています。日本国内でもエアーニッポンの客室乗務員管理システムや乗員情報管理システム、みなさんが病院に行った後に調剤薬局で薬を受け取ると思いますが、そのときに薬の概要や効用などを書かれた紙を受け取ると思いますが、これらの薬の情報及び顧客管理を行っている調剤薬局向けの調剤レセプトシステム、開業医向けの内視鏡検査画像ファイリングシステム、カード会社向けのギフトカードOCRシステム、ソニー・テクトロニクス社のノンリニア・ニュース編集システムであるクイックサーバなど、基幹系・情報系問わず非常に様々な用途で使用されています。
+InterBaseがどんな機能を提供しているかはFirebirdの機能説明で行うものとして、InterBaseの特徴を簡単に言い表すと次のようになります。
 
-	�E�ቿ�i
-	�E�R���p�N�g�ł��p���t���ȃf�[�^�x�[�X�G���W��
-	�EWindows, Linux, Solaris�Ȃǂ̃v���b�g�t�H�[�����T�|�[�g
-	�ESQL-99����
-	�E�t��UNICODE�T�|�[�g
-	�E�����^�A�[�L�e�N�`���i�o�[�W���j���O�G���W���j
-	�EBlob�A�������z��̃T�|�[�g
-	�E�X�g�A�h�v���V�[�W���A�C�x���g�A�g���K�[�Ȃǂ̃A�N�e�B�u�f�[�^�x�[�X�@�\
-	�E�C�x���g�A���[�^�@�\
-	�EDelphi,C++Builder,JBuilder�Ȃǂ̃{�[�����h�Ђ̊J���c�[���Ƃ̍����e�a��
+	・低価格
+	・コンパクトでかつパワフルなデータベースエンジン
+	・Windows, Linux, Solarisなどのプラットフォームをサポート
+	・SQL-99準拠
+	・フルUNICODEサポート
+	・履歴型アーキテクチャ（バージョニングエンジン）
+	・Blob、多次元配列のサポート
+	・ストアドプロシージャ、イベント、トリガーなどのアクティブデータベース機能
+	・イベントアラータ機能
+	・Delphi,C++Builder,JBuilderなどのボーランド社の開発ツールとの高い親和性
 
-InterBase�͂ǂ��炩�Ƃ����ƁA�A�v���P�[�V�����J���҂��f�[�^�x�[�X�Ǘ��҂��ӎ����邱�ƂȂ��A��y�ɗ��p�ł���f�[�^�x�[�X�ƂȂ��Ă���A�v���O��������l�X�ȋ@�\���Ăяo����悤�ɂȂ��Ă��܂��B�܂��A�����̓����͂��ׂ�Firebird�ɂ��󂯌p����Ă���A�A�v���P�[�V�����Ƃ̐e�a���̍����f�[�^�x�[�X�ƂȂ��Ă��܂��B
+InterBaseはどちらかというと、アプリケーション開発者がデータベース管理者を意識することなく、手軽に利用できるデータベースとなっており、プログラムから様々な機能を呼び出せるようになっています。また、これらの特徴はすべてFirebirdにも受け継がれており、アプリケーションとの親和性の高いデータベースとなっています。
 
-InterBase�ɂ��āi�{�[�����h�Ђ�Web�T�C�g�j
+InterBaseについて（ボーランド社のWebサイト）
 http://www.borland.co.jp/interbase/
-InterBase�̓�������i�{�[�����h�Ђ�Web�T�C�g�j
+InterBaseの導入事例（ボーランド社のWebサイト）
 http://www.borland.co.jp/interbase/cases/
 
 
-1-3.Firebird�a���̌o��
-InterBase�ɂ��ĊȒP�ɐ��������̂ŁAFirebird�͂ǂ̂悤�Ȍo�܂Ő��܂ꂽ���ɂ��Đ������Ă����܂��傤�BInterBase��Version 4�̎���܂Ŕ��ɑ����̃v���b�g�t�H�[�����T�|�[�g���Ă���A����K�͂ȃf�[�^����舵���鐻�i�Ƃ��Ă̋@�\�ǉ����s���Ă��܂������A���܂�ɑ����̃v���b�g�t�H�[�����T�|�[�g���Ă��邱�Ƃɂ�郁���e�i���X�R�X�g�̑���Ƒ��А��i�Ƃ̌����������ɂ��A�r�W�l�X�I�ɂ͂��܂肤�܂������Ă��Ȃ������悤�ł��B������Version 5���v���b�g�t�H�[�����i��A���i�̃^�[�Q�b�g����K�̓��[�U�[�ł͂Ȃ��A���p�A�v���P�[�V�����p�b�P�[�W�̑g�ݍ��݃G���W���Ƃ��Ă̗��p�A�����ڑ�200���[�U�[�ȉ��̃��[�N�O���[�v���x���̃f�[�^�x�[�X�Ƀ^�[�Q�b�g��ύX���܂����B���̕����]���͔��Ɍ��ʓI�ł������A�J���c�[������͂Ƃ���{�[�����h�Ђ̈ʒu�Â���InterBase�̕������ɏ��������������܂�Ă����܂����B���̂悤�Ȍo�܂̒��A2001�N1��3���Ƀ{�[�����h�Ђ�InterBase�̍ŐV�łƂȂ�J������InterBase 6.0���I�[�v���\�[�X�Ƃ��Ă̌��J���邱�Ƃ��A�i�E���X���A���N7��25���Ƀ\�[�X����уo�C�i�������J����܂����B�I�[�v���\�[�X�̃��C�Z���X�Ƃ��Ă�GPL(Gnu Public License)�ł͂Ȃ��ANetscape�Ђ�Netscape�̃\�[�X�R�[�h�����J�����Ƃ��ɍ쐬����MPL�iMozilla Public License)���x�[�X�ɂ������C�Z���X�|���V�[���̗p���܂����B�������A���J���ꂽ�\�[�X�R�[�h�͊J���r���̂��̂ł����������łȂ��A���J���ꂽ�\�[�X�R�[�h���r���h����ɂ�Marrion�ƌĂ΂��{�[�����h�Ђ̓����c�[�����K�v�ł��������߁A�قƂ�ǂ̊J���҂ɂ͎肪�o���Ȃ����̂ƂȂ��Ă��܂����B�������A�\�[�X�R�[�h�̓{�[�����h�Ђ̎�ɂ���āA�I�[�v���\�[�X���i�̃v���W�F�N�g�Ǘ�����у\�[�X�Ǘ��̃T�C�g�Ƃ��ėL����sourceforge.net�ɓo�^����܂����B
-�{�[�����h�Ђ�InterBase�̃\�[�X�R�[�h���J�̃^�C�~���O�Ɠ��������āAFirebird�̊J���E�T�|�[�g���s��Firebird�v���W�F�N�g����������A���J���ꂽ�\�[�X�R�[�h���x�[�X�ɊJ�����i�߂��Ă������ƂɂȂ�܂����B�ȗ��AFirebird�v���W�F�N�g�ɂ́A�ߋ��Ƀ{�[�����h�Ђɂ�InterBase�̊J�����s���Ă����l�AInterBase�̎��Ӄc�[��������Ă����l�A�{�[�����h�Ђ̐��i�ƂƂ���InterBase���g�p���Ă����l�ȂǁA���Ƀ��x���̍����J���҂��W�܂��Ă���A�L�u�ƂȂ��Ċg���E�����e�i���X���s���Ă��܂��B�r���h�c�[�������J����Ȃ��������߁A�v���W�F�N�g�̗����オ��ɂ͔��Ɏ��Ԃ�������܂������A2002�N3��12����Firebird�v���W�F�N�g�ɂ��AFirebird Version 1.0�������[�X����܂����BFirebird Version 1.0�͍ŏ��̃o�[�W�����ł��邱�Ƃ𓥂܂��AInterBase Version 6.0�Ƃ̊��S�Ȍ݊�����InterBase Version 6.0�ȏ�̉��ʌ݊������������邱�Ƃ�ڕW�Ƀ����[�X����Ă���A�قڂ��̖ڕW�͒B�����Ă��܂��B
-Firebird�v���W�F�N�g�ł͖{��InterBase Version 7.0�Ŋg�������\��ł������@�\�i�{�[�����h�Ђ����J���Ă������́j�̒ǉ����s��Firebird Version 2.0�̊J�����X�^�[�g���Ă��܂��B�܂��A�g�p���錾���C����C++�ւƈڍs���A2002�N����Firebird Version 1.0�Ɗ��S�݊��ŁAC++�x�[�X�ɏ��������ꂽFirebird Version 1.5�̃����[�X��\�肵�Ă��܂��B
+1-3.Firebird誕生の経緯
+InterBaseについて簡単に説明したので、Firebirdはどのような経緯で生まれたかについて説明しておきましょう。InterBaseはVersion 4の時代まで非常に多くのプラットフォームをサポートしており、より大規模なデータを取り扱える製品としての機能追加を行っていましたが、あまりに多くのプラットフォームをサポートしていることによるメンテナンスコストの増大と他社製品との激しい競争により、ビジネス的にはあまりうまくいっていなかったようです。そこでVersion 5よりプラットフォームを絞り、製品のターゲットも大規模ユーザーではなく、商用アプリケーションパッケージの組み込みエンジンとしての利用、同時接続200ユーザー以下のワークグループレベルのデータベースにターゲットを変更しました。この方向転換は非常に効果的でしたが、開発ツールを主力とするボーランド社の位置づけとInterBaseの方向性に少しずつ乖離が生まれていきました。このような経緯の中、2001年1月3日にボーランド社はInterBaseの最新版となる開発中のInterBase 6.0をオープンソースとしての公開することをアナウンスし、同年7月25日にソースおよびバイナリが公開されました。オープンソースのライセンスとしてはGPL(Gnu Public License)ではなく、Netscape社がNetscapeのソースコードを公開したときに作成したMPL（Mozilla Public License)をベースにしたライセンスポリシーを採用しました。しかし、公開されたソースコードは開発途中のものであっただけでなく、公開されたソースコードをビルドするにはMarrionと呼ばれるボーランド社の内部ツールが必要であったため、ほとんどの開発者には手が出せないものとなっていました。ただし、ソースコードはボーランド社の手によって、オープンソース製品のプロジェクト管理およびソース管理のサイトとして有名なsourceforge.netに登録されました。
+ボーランド社のInterBaseのソースコード公開のタイミングと同じくして、Firebirdの開発・サポートを行うFirebirdプロジェクトが結成され、公開されたソースコードをベースに開発が進められていくことになりました。以来、Firebirdプロジェクトには、過去にボーランド社にてInterBaseの開発を行ってきた人、InterBaseの周辺ツールを作ってきた人、ボーランド社の製品とともにInterBaseを使用してきた人など、非常にレベルの高い開発者が集まっており、有志となって拡張・メンテナンスを行っています。ビルドツールが公開されなかったため、プロジェクトの立ち上がりには非常に時間がかかりましたが、2002年3月12日にFirebirdプロジェクトにより、Firebird Version 1.0がリリースされました。Firebird Version 1.0は最初のバージョンであることを踏まえ、InterBase Version 6.0との完全な互換性とInterBase Version 6.0以上の下位互換性を実現することを目標にリリースされており、ほぼこの目標は達成しています。
+Firebirdプロジェクトでは本来InterBase Version 7.0で拡張される予定であった機能（ボーランド社が公開していたもの）の追加を行うFirebird Version 2.0の開発をスタートしています。また、使用する言語もCからC++へと移行し、2002年中にFirebird Version 1.0と完全互換で、C++ベースに書き直されたFirebird Version 1.5のリリースを予定しています。
 
 
-1-4.2��InterBase��Firebird
-���łɐ��������悤��Firebird Version 1.0��InterBase Version 6.0�͂قڊ��S�݊��ɂȂ��Ă��܂����AInterBase Version 6.0�͂Q��ޑ��݂��Ă���̂ŁAFirebird Version 1.0�Ƃ̊֌W�ɂ��ď����������邱�Ƃ�����܂��B�����ł�InterBase��Firebird�̈Ⴂ�ɂ��Đ������܂��傤�B
-InterBase Version 6.0�ɂ̓I�[�v���\�[�X�łƏ��p�ł�2��ނ�����܂��B�I�[�v���\�[�X�ł̓{�[�����h�Ђɂ����sourceforge.net�̃T�C�g�ɂă\�[�X�R�[�h�����J����Ă�����̂ŁA2001�N7���ɍŏ��̃R�[�h�����J����A���̌�2002�N12���ɏC�����ꂽ���W���[�����X�V����Ă��܂��B2001�N7���̂Ƃ��̓{�[�����h�Ђ�Web�T�C�g�ɂāA�o�C�i�������J����܂������A���̌�̓o�C�i���̌��J�͂Ȃ��\�[�X�R�[�h�����ƂȂ��Ă��܂��B�����A������̃\�[�X�R�[�h���\�z�����o�C�i�����~�����ꍇ�́A�J�i�_��Mers System�Ђ�Web�T�C�g����_�E�����[�h����Ƃ����ł��傤�B
-������InterBase Version 6.0�̏��p�ł͂��̖��̒ʂ�A�{�[�����h�Ђ������Ȑ��i�Ƃ��ăp�b�P�[�W�̔����Ă�����̂ł��B�p�b�P�[�W�ɂ�ODBC�h���C�o�⃌�v���P�[�V�����G���W���A������ꂽ�}�j���A�����t�����Ă���A�{�[�����h�Ђ̗L���̃T�|�[�g�T�[�r�X���󂯂錠�����t�����Ă��܂��B
-�܂�A�I�[�v���\�[�X�łƏ��p�ł̈Ⴂ�͕t���̃c�[�����g�������l��x���_�[�̃T�|�[�g���󂯂������p�̂��̂ƂȂ��Ă��܂��B�܂��A�{�[�����h�Ђ�2001�N12����InterBase Version 6.0�̎����o�[�W�����ł���InterBase Version 6.5�������[�X���܂����BInterBase Version 6.0�ł̓I�[�v���\�[�X�Ƃ��Č��J���܂������A���̌�{�[�����h�Ђ͕��j��]�����AInterBase Version 6.5�ł̓\�[�X�R�[�h�̌��J�͍s��Ȃ����ƂƂȂ�܂����B���̂��߁AInterBase�̃I�[�v���\�[�X�ł̗��p�͂�������̃o�[�W�����ŏI�����邱�ƂɂȂ�܂����B
-Firebird Version 1.0�͌��J���ꂽ���ׂĂ�InterBase Version 6.0�̃\�[�X�R�[�h���}�[�W���Ă��܂��̂ŁAInterBase Version 6.0 �I�[�v���\�[�X�ł��x�[�X�Ƃ���Firebird���^�̃I�[�v���\�[�X��InterBase�Ƃ��Đ��������邱�ƂɂȂ�A����Ȃ�g�����������Ă���̂ł��B
-�I�[�v���\�[�X�ł�InterBase Version 6.0�����Firebird�v���W�F�N�g�̃\�[�X�R�[�h��sourceforge.net�̃T�C�g����_�E�����[�h���邱�Ƃ��ł��܂��B
+1-4.2つのInterBaseとFirebird
+すでに説明したようにFirebird Version 1.0とInterBase Version 6.0はほぼ完全互換になっていますが、InterBase Version 6.0は２種類存在しているので、Firebird Version 1.0との関係について少し混乱することがあります。ここではInterBaseとFirebirdの違いについて説明しましょう。
+InterBase Version 6.0にはオープンソース版と商用版の2種類があります。オープンソース版はボーランド社によってsourceforge.netのサイトにてソースコードが公開されているもので、2001年7月に最初のコードが公開され、その後2002年12月に修正されたモジュールが更新されています。2001年7月のときはボーランド社のWebサイトにて、バイナリも公開されましたが、その後はバイナリの公開はなくソースコードだけとなっています。もし、こちらのソースコードを構築したバイナリが欲しい場合は、カナダのMers System社のWebサイトからダウンロードするといいでしょう。
+続いてInterBase Version 6.0の商用版はその名の通り、ボーランド社が正式な製品としてパッケージ販売しているものです。パッケージにはODBCドライバやレプリケーションエンジン、印刷されたマニュアルが付属しており、ボーランド社の有償のサポートサービスを受ける権利が付属しています。
+つまり、オープンソース版と商用版の違いは付属のツールを使いたい人やベンダーのサポートを受けたい方用のものとなっています。また、ボーランド社は2001年12月にInterBase Version 6.0の次期バージョンであるInterBase Version 6.5をリリースしました。InterBase Version 6.0ではオープンソースとして公開しましたが、その後ボーランド社は方針を転換し、InterBase Version 6.5ではソースコードの公開は行わないこととなりました。そのため、InterBaseのオープンソースでの利用はたった一つのバージョンで終了することになりました。
+Firebird Version 1.0は公開されたすべてのInterBase Version 6.0のソースコードをマージしていますので、InterBase Version 6.0 オープンソース版をベースとしたFirebirdが真のオープンソース版InterBaseとして生き続けることになり、さらなる拡張が続けられているのです。
+オープンソース版のInterBase Version 6.0およびFirebirdプロジェクトのソースコードはsourceforge.netのサイトからダウンロードすることができます。
 
-�I�[�v���\�[�X��InterBase Version 6.0�v���W�F�N�g
+オープンソース版InterBase Version 6.0プロジェクト
 http://sourceforge.net/projects/interbase/
-�I�[�v���\�[�X�ł�InterBase�̃o�C�i���iMers Systems�Ђ�Web�T�C�g�j
+オープンソース版のInterBaseのバイナリ（Mers Systems社のWebサイト）
 http://mers.com/
-Firebird�v���W�F�N�g
+Firebirdプロジェクト
 http://sourceforge.net/projects/firebird/
 
-���ł�Firebird Version 1.0��InterBase Version 6.0�͂قڊ��S�݊��ł���A�ꗑ���o�����̂悤�Ȃ��̂��Ƃ������Ƃ�������܂������AFirebird Version 1.0�ɂ�InterBase Version 6.0�ɂ͂Ȃ�64bit I/O�̃T�|�[�g(Sparc Solaris, x86 Solaris�̂݁j�Ȃǂ��܂܂�Ă��܂����A��{�I�ɏ��p��InterBase Version 6.0�Ƃ��قڊ��S�݊������ێ����Ă��܂��B�{�[�����h�Ђ�InterBase Version 6.5�̃\�[�X�R�[�h�����J���邱�Ƃ����߂����߁AFirebird�����̊�Ղ��󂯌p���A��Q��InterBase�Ƃ��ăI�[�v���\�[�X�̐��E��˂��i��ł��܂��BInterBase Version 6.5�����p�ł��������[�X����Ă��Ȃ����Ƃɂ��AFirebird�̎���version 2.0�ł͓Ǝ��H������ނ��ƂɂȂ��Ă��܂��B���̂��߁A��������Firebird��InterBase�͕ʂ̓�����ނ��ƂɂȂ��Ă����ł��傤�B�������AFirebird�v���W�F�N�g�͂ł�������InterBase�Ƃ̌݊����������Ƃ��d�v�����Ă���A�v���W�F�N�g�ɂ͉ߋ���InterBase�̊J�����s���Ă����G���W�j�A���������Q�����Ă��邽�߁AInterBase�ȏ��InterBase�Ƃ���Firebird�͑������Ă������ƂɂȂ�ł��傤�B
-Firebird��InterBase���T�|�[�g���Ă��Ȃ�FreeBSD,Intel��Solaris,HP-UX, Netware, AIX, MacOS X�Ȃǂւ̃|�[�e�B���O���s���Ă���A�l�X�ȃv���b�g�t�H�[���ł̗��p�ł���悤�ɂȂ��Ă��܂��B����́AInterBase�̌Â��o�[�W�����𗘗p���Ă��郆�[�U�[��Firebird�Ɏ�荞�ނ��߂ł�����܂��B
-�܂��A�����I��Windows CE�ւ̃|�[�e�B���O���J�n����A�g���p�r�ł̊��p����������Ă��܂��B
+すでにFirebird Version 1.0とInterBase Version 6.0はほぼ完全互換であり、一卵性双生児のようなものだということを説明しましたが、Firebird Version 1.0にはInterBase Version 6.0にはない64bit I/Oのサポート(Sparc Solaris, x86 Solarisのみ）などが含まれていますが、基本的に商用版InterBase Version 6.0ともほぼ完全互換性を維持しています。ボーランド社がInterBase Version 6.5のソースコードを公開することを辞めたため、Firebirdがその基盤を受け継ぎ、第２のInterBaseとしてオープンソースの世界を突き進んでいます。InterBase Version 6.5が商用版しかリリースされていないことにより、Firebirdの次のversion 2.0では独自路線を歩むことになっています。そのため、少しずつFirebirdとInterBaseは別の道を歩むことになっていくでしょう。しかし、Firebirdプロジェクトはできる限りのInterBaseとの互換性を持つことを重要視しており、プロジェクトには過去にInterBaseの開発を行っていたエンジニアが数多く参加しているため、InterBase以上のInterBaseとしてFirebirdは存続していくことになるでしょう。
+FirebirdはInterBaseがサポートしていないFreeBSD,Intel版Solaris,HP-UX, Netware, AIX, MacOS Xなどへのポーティングを行っており、様々なプラットフォームでの利用できるようになっています。これは、InterBaseの古いバージョンを利用しているユーザーをFirebirdに取り込むためでもあります。
+また、試験的にWindows CEへのポーティングも開始され、組込用途での活用も検討されています。
 
-Firebird-ce�v���W�F�N�g
+Firebird-ceプロジェクト
 http://firebird-ce.tigris.org/
 
-�\1-4-1.2��InterBase��Firebird
-	���i��										�����e�i���X��			�z�z�`��
+表1-4-1.2つのInterBaseとFirebird
+	製品名										メンテナンス者			配布形式
 -----------------------------------------------------------------------------------------------
-	InterBase Version 6.0 	���i��				�{�[�����h��			�L���̃p�b�P�[�W���i
-	InterBase Version 6.0 	�I�[�v���\�[�X��	�{�[�����h��			�I�[�v���\�[�X
-	Firebird									Firebird�v���W�F�N�g	�I�[�v���\�[�X
+	InterBase Version 6.0 	製品版				ボーランド社			有料のパッケージ製品
+	InterBase Version 6.0 	オープンソース版	ボーランド社			オープンソース
+	Firebird									Firebirdプロジェクト	オープンソース
 
 
-1-5.IBPhoenix�Ђɂ���
-Firebird�̊J���ɂ�IBPhoenix�Ƃ����č��̉�Ђ��v�����Ă��܂��BIBPhoenix�̓I�[�v���\�[�X��InterBase��Firebird�̍v���̂��߁A����琻�i�ɑ΂���M�����̍����T�|�[�g���������邽�߂ɐݗ�����܂����BIBPhoenix�̑�\��15�N��InterBase�̊J���E�T�|�[�g���s���Ă���Ann Harrison���ŁA�ޏ���InterBase�̃W�F�l�����}�l�[�W�����s���Ă���Paul Beach���ɂ���Đݗ�����A�č��E�p���ɂĎ��̍����T�|�[�g��񋟂��Ă��܂��B�܂��AFirebird�̐��i�̕����������߂Ă��钆�S�����o�[�������Ă���g�D�ł�����AFirebird�̂���Ȃ锭�W�Ə��p�f�[�^�x�[�X�Ƃ̋����Ƃ��̐킢�ɏ����Ă������߂̕��@��͍����Ă��܂��B�I�[�v���\�[�X�Ə��p�f�[�^�x�[�X�͋����Ƌ����̌����������Ă��܂��B�I�[�v���\�[�X�͔�c���c�̂�w�Z�Ȃǂł̊��p�⏫���̃G���W�j�A�̂��߂̋���Ŏg�p����Ă��܂����A�I�[�v���\�[�X���i�����悢���i�Ƃ��Đ����Ă������߂ɂ͏��p���i�Ƃ̋����ɏ����Ă����K�v������܂��BFirebird�����p�f�[�^�x�[�X�Ƃ̋����ɏ����Ă������߂ɂ́AIBPhoenix�Ђ̂悤�ȃT�|�[�g�v���O�������s����ЂƊ����ȃ��[�U�[�O���[�v�̗������K�v�ɂȂ�܂��B
-IBPhoenix�Ђł�Firebird�̃\�[�X�ƃo�C�i���A�h�L�������g�A�C���X�g�[���T�|�[�g�AIBPhoenix�Ђ̊J������ODBC�h���C�o���܂߂�CD-ROM��̔����Ă��܂��B����͂��傤��Linux�̃f�B�X�g���r���[�V�����p�b�P�[�W���L���Ŕ̔�����Ă���̂Ɠ��l�ł��B
-IBPhoenix�Ђ�Web�T�C�g��InterBase��Firebird�Ɋւ��鐻�i���A�Z�p���A���Ӄc�[�����AFirebird�̃o�C�i���ƃ\�[�X�̃_�E�����[�h�Ȃǃ|�[�^���T�C�g�Ƃ��Ă̖����������Ă��܂��B�������A�J�����Ă���\�[�X�R�[�h�̃c���[�͈ꌳ�Ǘ����s�����߂��ׂ�sourceforge.net�̃T�C�g��CVS�ŊǗ�����Ă��܂��BFirebird���g�p�������邽�߂ɂ�IBPhoenix�Ђ̃T�C�g��O����Ƀ`�F�b�N���Ă����K�v������ł��傤�B
+1-5.IBPhoenix社について
+Firebirdの開発にはIBPhoenixという米国の会社が貢献しています。IBPhoenixはオープンソース版InterBaseとFirebirdの貢献のため、これら製品に対する信頼性の高いサポートを供給するために設立されました。IBPhoenixの代表は15年間InterBaseの開発・サポートを行ってきたAnn Harrison氏で、彼女とInterBaseのジェネラルマネージャを行っていたPaul Beach氏によって設立され、米国・英国にて質の高いサポートを提供しています。また、Firebirdの製品の方向性を決めている中心メンバーが属している組織でもあり、Firebirdのさらなる発展と商用データベースとの競争とその戦いに勝っていくための方法を模索しています。オープンソースと商用データベースは共存と競争の原理が働いています。オープンソースは非営利団体や学校などでの活用や将来のエンジニアのための教育で使用されていますが、オープンソース製品がよりよい製品として生きていくためには商用製品との競争に勝っていく必要があります。Firebirdが商用データベースとの競争に勝っていくためには、IBPhoenix社のようなサポートプログラムを行う会社と活発なユーザーグループの両方が必要になります。
+IBPhoenix社ではFirebirdのソースとバイナリ、ドキュメント、インストールサポート、IBPhoenix社の開発したODBCドライバを含めたCD-ROMを販売しています。これはちょうどLinuxのディストリビューションパッケージが有償で販売されているのと同様です。
+IBPhoenix社のWebサイトはInterBaseとFirebirdに関する製品情報、技術情報、周辺ツール情報、Firebirdのバイナリとソースのダウンロードなどポータルサイトとしての役割を持っています。ただし、開発しているソースコードのツリーは一元管理を行うためすべてsourceforge.netのサイトのCVSで管理されています。Firebirdを使用し続けるためにはIBPhoenix社のサイトを念入りにチェックしていく必要があるでしょう。
 
-IBPhoenix��
+IBPhoenix社
 http://www.ibphoenix.com/
 
 
